@@ -1,55 +1,116 @@
+// Import Firebase SDKs
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import {
+    getFirestore,
+    collection,
+    getDocs,
+    addDoc,
+    deleteDoc,
+    doc,
+    updateDoc,
+    setDoc,
+    query,
+    orderBy
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+// Firebase Configuration
+const firebaseConfig = {
+    apiKey: "AIzaSyDDs2p-ix18DsJXUAOa4OjdbGml0VaSGq0",
+    authDomain: "finance-tracker-b42c4.firebaseapp.com",
+    projectId: "finance-tracker-b42c4",
+    storageBucket: "finance-tracker-b42c4.firebasestorage.app",
+    messagingSenderId: "960545234758",
+    appId: "1:960545234758:web:3b38aa3c43f879928c4f47",
+    measurementId: "G-35D8F5V20P"
+};
+
+// Initialize Firebase
+const firebaseApp = initializeApp(firebaseConfig);
+const db = getFirestore(firebaseApp);
+
 // Data Management
 class FinanceTracker {
     constructor() {
-        this.transactions = this.loadFromStorage('transactions') || [];
-        this.installments = this.loadFromStorage('installments') || [];
-        this.initialBalances = this.loadFromStorage('initialBalances') || null;
-        this.customCategories = this.loadFromStorage('customCategories') || {
-            income: [],
-            expense: []
-        };
+        this.transactions = [];
+        this.installments = [];
+        this.initialBalances = { cash: 0, bank: 0 };
+        this.customCategories = { income: [], expense: [] };
+
         this.currentFilter = 'all';
         this.currentTransactionType = 'income';
         this.currentPaymentMethod = 'cash';
+
         this.init();
     }
 
-    init() {
-        // Initialize with zero balances if not set
-        if (!this.initialBalances) {
-            this.initialBalances = { cash: 0, bank: 0 };
-            this.saveToStorage('initialBalances', this.initialBalances);
-        }
-
-        // Remove initial balance modal (not needed anymore)
-        document.getElementById('initialBalanceModal').classList.remove('active');
+    async init() {
+        // Remove initial balance modal if present
+        const initialModal = document.getElementById('initialBalanceModal');
+        if (initialModal) initialModal.classList.remove('active');
 
         this.setupEventListeners();
+
+        try {
+            await this.loadAllData();
+        } catch (error) {
+            console.error("Error loading data:", error);
+            alert("Veriler yüklenirken bir hata oluştu. Lütfen internet bağlantınızı kontrol edin.");
+        }
+
         this.updateSummary();
         this.renderTransactions();
         this.renderInstallments();
         this.loadTheme();
         this.setDefaultDate();
+        this.renderCustomCategories();
         this.updateCategoryDropdowns();
     }
 
-    // Storage
-    loadFromStorage(key) {
-        try {
-            const data = localStorage.getItem(key);
-            return data ? JSON.parse(data) : null;
-        } catch (e) {
-            console.error('Error loading from storage:', e);
-            return null;
+    async loadAllData() {
+        // Load Initial Balances
+        const settingsSnap = await getDocs(collection(db, "settings"));
+        settingsSnap.forEach(doc => {
+            if (doc.id === "initialBalances") {
+                this.initialBalances = doc.data();
+            } else if (doc.id === "customCategories") {
+                this.customCategories = doc.data();
+            }
+        });
+
+        // Initialize settings if they don't exist
+        if (settingsSnap.empty || !this.initialBalances) {
+            await this.saveInitialBalances({ cash: 0, bank: 0 });
         }
+        if (!this.customCategories.income) {
+            await this.saveCustomCategories({ income: [], expense: [] });
+        }
+
+        // Load Transactions
+        const qTransactions = query(collection(db, "transactions"), orderBy("date", "desc"));
+        const transSnap = await getDocs(qTransactions);
+        this.transactions = [];
+        transSnap.forEach(doc => {
+            this.transactions.push({ id: doc.id, ...doc.data() });
+        });
+
+        // Load Installments
+        const qInstallments = query(collection(db, "installments"), orderBy("createdAt", "desc"));
+        const instSnap = await getDocs(qInstallments);
+        this.installments = [];
+        instSnap.forEach(doc => {
+            this.installments.push({ id: doc.id, ...doc.data() });
+        });
     }
 
-    saveToStorage(key, data) {
-        try {
-            localStorage.setItem(key, JSON.stringify(data));
-        } catch (e) {
-            console.error('Error saving to storage:', e);
-        }
+    // Settings (Balances & Categories)
+    async saveInitialBalances(data) {
+        this.initialBalances = data;
+        await setDoc(doc(db, "settings", "initialBalances"), data);
+    }
+
+    async saveCustomCategories(data) {
+        this.customCategories = data;
+        await setDoc(doc(db, "settings", "customCategories"), data);
     }
 
     // Theme
@@ -66,7 +127,7 @@ class FinanceTracker {
     }
 
     // Balance Editing
-    editBalance(type) {
+    async editBalance(type) {
         const currentBalance = this.initialBalances[type] || 0;
         const label = type === 'cash' ? 'Nakit Bakiye' : 'Banka Bakiye';
         const newBalance = prompt(`${label} düzenle (€):`, currentBalance);
@@ -74,14 +135,15 @@ class FinanceTracker {
         if (newBalance !== null && newBalance !== '') {
             const parsedBalance = parseFloat(newBalance);
             if (!isNaN(parsedBalance)) {
-                this.initialBalances[type] = parsedBalance;
-                this.saveToStorage('initialBalances', this.initialBalances);
+                const newBalances = { ...this.initialBalances, [type]: parsedBalance };
+                await this.saveInitialBalances(newBalances);
                 this.updateSummary();
             } else {
                 alert('Lütfen geçerli bir sayı girin.');
             }
         }
     }
+
     // Event Listeners
     setupEventListeners() {
         // Theme toggle
@@ -150,7 +212,7 @@ class FinanceTracker {
         document.getElementById('categoryModal').classList.remove('active');
     }
 
-    addCustomCategory(type) {
+    async addCustomCategory(type) {
         const inputId = type === 'income' ? 'newIncomeCategory' : 'newExpenseCategory';
         const input = document.getElementById(inputId);
         const categoryName = input.value.trim();
@@ -158,27 +220,31 @@ class FinanceTracker {
         if (!categoryName) return;
 
         const categoryId = `custom_${type}_${Date.now()}`;
-        this.customCategories[type].push({
+        const newCategories = { ...this.customCategories };
+        newCategories[type].push({
             id: categoryId,
             name: categoryName
         });
 
-        this.saveToStorage('customCategories', this.customCategories);
+        await this.saveCustomCategories(newCategories);
         input.value = '';
         this.renderCustomCategories();
         this.updateCategoryDropdowns();
     }
 
-    deleteCustomCategory(type, categoryId) {
+    async deleteCustomCategory(type, categoryId) {
         if (confirm('Bu kategoriyi silmek istediğinizden emin misiniz?')) {
-            this.customCategories[type] = this.customCategories[type].filter(cat => cat.id !== categoryId);
-            this.saveToStorage('customCategories', this.customCategories);
+            const newCategories = { ...this.customCategories };
+            newCategories[type] = newCategories[type].filter(cat => cat.id !== categoryId);
+            await this.saveCustomCategories(newCategories);
             this.renderCustomCategories();
             this.updateCategoryDropdowns();
         }
     }
 
     renderCustomCategories() {
+        if (!this.customCategories.income) return;
+
         // Render income categories
         const incomeList = document.getElementById('incomeCategoriesList');
         incomeList.innerHTML = this.customCategories.income.map(cat => `
@@ -207,6 +273,8 @@ class FinanceTracker {
     }
 
     updateCategoryDropdowns() {
+        if (!this.customCategories.income) return;
+
         const incomeGroup = document.getElementById('incomeCategories');
         const expenseGroup = document.getElementById('expenseCategories');
 
@@ -237,12 +305,10 @@ class FinanceTracker {
 
     // Tabs
     switchTab(tabName) {
-        // Update tab buttons
         document.querySelectorAll('.tab-btn').forEach(btn => {
             btn.classList.toggle('active', btn.dataset.tab === tabName);
         });
 
-        // Update tab content
         document.querySelectorAll('.tab-content').forEach(content => {
             content.classList.toggle('active', content.id === `${tabName}-tab`);
         });
@@ -290,25 +356,21 @@ class FinanceTracker {
         const type = btn.dataset.type;
         this.currentTransactionType = type;
 
-        // Update button states
         document.querySelectorAll('.type-btn').forEach(b => {
             b.classList.toggle('active', b === btn);
         });
 
-        // Update category options
         const incomeCategories = document.getElementById('incomeCategories');
         const expenseCategories = document.getElementById('expenseCategories');
 
         if (type === 'income') {
             incomeCategories.style.display = '';
             expenseCategories.style.display = 'none';
-            // Select first income category
             const firstOption = incomeCategories.querySelector('option');
             if (firstOption) document.getElementById('transactionCategory').value = firstOption.value;
         } else {
             incomeCategories.style.display = 'none';
             expenseCategories.style.display = '';
-            // Select first expense category
             const firstOption = expenseCategories.querySelector('option');
             if (firstOption) document.getElementById('transactionCategory').value = firstOption.value;
         }
@@ -318,48 +380,66 @@ class FinanceTracker {
         const payment = btn.dataset.payment;
         this.currentPaymentMethod = payment;
 
-        // Update button states
         document.querySelectorAll('.payment-btn').forEach(b => {
             b.classList.toggle('active', b === btn);
         });
     }
 
-    handleTransactionSubmit(e) {
+    async handleTransactionSubmit(e) {
         e.preventDefault();
-
         const form = e.target;
-        const transaction = {
-            id: form.dataset.editId || Date.now().toString(),
+        const submitBtn = form.querySelector('button[type="submit"]');
+        submitBtn.disabled = true;
+
+        const transactionData = {
             type: this.currentTransactionType,
             paymentMethod: this.currentPaymentMethod,
             description: document.getElementById('transactionDescription').value,
             amount: parseFloat(document.getElementById('transactionAmount').value),
             date: document.getElementById('transactionDate').value,
             category: document.getElementById('transactionCategory').value,
-            createdAt: form.dataset.editId ? this.transactions.find(t => t.id === form.dataset.editId).createdAt : new Date().toISOString()
+            createdAt: new Date().toISOString()
         };
 
-        if (form.dataset.editId) {
-            // Update existing
-            const index = this.transactions.findIndex(t => t.id === form.dataset.editId);
-            this.transactions[index] = transaction;
-        } else {
-            // Add new
-            this.transactions.unshift(transaction);
-        }
+        try {
+            if (form.dataset.editId) {
+                // Update
+                const ref = doc(db, "transactions", form.dataset.editId);
+                await updateDoc(ref, transactionData);
 
-        this.saveToStorage('transactions', this.transactions);
-        this.updateSummary();
-        this.renderTransactions();
-        this.closeTransactionModal();
-    }
+                // Update local state
+                const index = this.transactions.findIndex(t => t.id === form.dataset.editId);
+                if (index !== -1) {
+                    this.transactions[index] = { id: form.dataset.editId, ...transactionData };
+                }
+            } else {
+                // Add
+                const docRef = await addDoc(collection(db, "transactions"), transactionData);
+                this.transactions.unshift({ id: docRef.id, ...transactionData });
+            }
 
-    deleteTransaction(id) {
-        if (confirm('Bu işlemi silmek istediğinizden emin misiniz?')) {
-            this.transactions = this.transactions.filter(t => t.id !== id);
-            this.saveToStorage('transactions', this.transactions);
             this.updateSummary();
             this.renderTransactions();
+            this.closeTransactionModal();
+        } catch (error) {
+            console.error("Error saving transaction:", error);
+            alert("İşlem kaydedilirken bir hata oluştu.");
+        } finally {
+            submitBtn.disabled = false;
+        }
+    }
+
+    async deleteTransaction(id) {
+        if (confirm('Bu işlemi silmek istediğinizden emin misiniz?')) {
+            try {
+                await deleteDoc(doc(db, "transactions", id));
+                this.transactions = this.transactions.filter(t => t.id !== id);
+                this.updateSummary();
+                this.renderTransactions();
+            } catch (error) {
+                console.error("Error deleting transaction:", error);
+                alert("Silme işlemi başarısız oldu.");
+            }
         }
     }
 
@@ -375,44 +455,70 @@ class FinanceTracker {
         document.getElementById('installmentModal').classList.remove('active');
     }
 
-    handleInstallmentSubmit(e) {
+    async handleInstallmentSubmit(e) {
         e.preventDefault();
+        const form = e.target;
+        const submitBtn = form.querySelector('button[type="submit"]');
+        submitBtn.disabled = true;
 
-        const installment = {
-            id: Date.now().toString(),
+        const totalAmount = parseFloat(document.getElementById('installmentTotal').value);
+        const installmentCount = parseInt(document.getElementById('installmentCount').value);
+
+        const installmentData = {
             description: document.getElementById('installmentDescription').value,
-            totalAmount: parseFloat(document.getElementById('installmentTotal').value),
-            installmentCount: parseInt(document.getElementById('installmentCount').value),
+            totalAmount: totalAmount,
+            installmentCount: installmentCount,
+            monthlyAmount: totalAmount / installmentCount,
             startDate: document.getElementById('installmentStart').value,
             paidCount: 0,
             createdAt: new Date().toISOString()
         };
 
-        installment.monthlyAmount = installment.totalAmount / installment.installmentCount;
+        try {
+            const docRef = await addDoc(collection(db, "installments"), installmentData);
+            this.installments.unshift({ id: docRef.id, ...installmentData });
 
-        this.installments.unshift(installment);
-        this.saveToStorage('installments', this.installments);
-        this.updateSummary();
-        this.renderInstallments();
-        this.closeInstallmentModal();
-    }
-
-    deleteInstallment(id) {
-        if (confirm('Bu taksiti silmek istediğinizden emin misiniz?')) {
-            this.installments = this.installments.filter(i => i.id !== id);
-            this.saveToStorage('installments', this.installments);
             this.updateSummary();
             this.renderInstallments();
+            this.closeInstallmentModal();
+        } catch (error) {
+            console.error("Error saving installment:", error);
+            alert("Taksit kaydedilirken bir hata oluştu.");
+        } finally {
+            submitBtn.disabled = false;
         }
     }
 
-    payInstallment(id) {
+    async deleteInstallment(id) {
+        if (confirm('Bu taksiti silmek istediğinizden emin misiniz?')) {
+            try {
+                await deleteDoc(doc(db, "installments", id));
+                this.installments = this.installments.filter(i => i.id !== id);
+                this.updateSummary();
+                this.renderInstallments();
+            } catch (error) {
+                console.error("Error deleting installment:", error);
+                alert("Silme işlemi başarısız oldu.");
+            }
+        }
+    }
+
+    async payInstallment(id) {
         const installment = this.installments.find(i => i.id === id);
         if (installment && installment.paidCount < installment.installmentCount) {
-            installment.paidCount++;
-            this.saveToStorage('installments', this.installments);
-            this.updateSummary();
-            this.renderInstallments();
+            try {
+                const newPaidCount = installment.paidCount + 1;
+                await updateDoc(doc(db, "installments", id), {
+                    paidCount: newPaidCount
+                });
+
+                installment.paidCount = newPaidCount;
+                this.updateSummary();
+                this.renderInstallments();
+            } catch (error) {
+                console.error("Error paying installment:", error);
+                alert("Ödeme işlemi başarısız oldu.");
+            }
         }
     }
 
@@ -599,7 +705,6 @@ class FinanceTracker {
                 minimumFractionDigits: 2
             }).format(amount);
         } catch (e) {
-            // Fallback for browsers without Intl support
             return '€' + amount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
         }
     }
@@ -613,22 +718,16 @@ class FinanceTracker {
                 year: 'numeric'
             }).format(date);
         } catch (e) {
-            // Fallback for browsers without Intl support
-            const date = new Date(dateString);
-            const months = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',
-                'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
-            return `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
+            return dateString;
         }
     }
 
     getCategoryName(category) {
         const defaultCategories = {
-            // Income
             'salary': 'Maaş',
             'freelance': 'Serbest Çalışma',
             'investment': 'Yatırım',
             'other-income': 'Diğer Gelir',
-            // Expense
             'food': 'Yiyecek & İçecek',
             'transport': 'Ulaşım',
             'bills': 'Faturalar',
@@ -638,16 +737,12 @@ class FinanceTracker {
             'other-expense': 'Diğer Gider'
         };
 
-        // Check if it's a default category
-        if (defaultCategories[category]) {
-            return defaultCategories[category];
-        }
+        if (defaultCategories[category]) return defaultCategories[category];
 
-        // Check if it's a custom category
-        const customIncome = this.customCategories.income.find(c => c.id === category);
+        const customIncome = this.customCategories.income?.find(c => c.id === category);
         if (customIncome) return customIncome.name;
 
-        const customExpense = this.customCategories.expense.find(c => c.id === category);
+        const customExpense = this.customCategories.expense?.find(c => c.id === category);
         if (customExpense) return customExpense.name;
 
         return category;
@@ -661,16 +756,17 @@ class FinanceTracker {
 
     setDefaultDate() {
         const today = new Date().toISOString().split('T')[0];
-        document.getElementById('transactionDate').value = today;
+        const dateInput = document.getElementById('transactionDate');
+        if (dateInput) dateInput.value = today;
     }
 
     setDefaultInstallmentDate() {
         const today = new Date().toISOString().split('T')[0];
-        document.getElementById('installmentStart').value = today;
+        const dateInput = document.getElementById('installmentStart');
+        if (dateInput) dateInput.value = today;
     }
 }
 
-// Initialize app
 // Initialize app
 document.addEventListener('DOMContentLoaded', () => {
     window.app = new FinanceTracker();
