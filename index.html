@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Finans Takip - Gelir & Gider Yönetimi</title>
+    <meta name="description" content="Gelir, gider ve taksit ödemelerinizi kolayca takip edin">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="index.css">
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="header-content">
+                <div class="logo">
+                    <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                        <circle cx="16" cy="16" r="14" fill="url(#gradient1)" />
+                        <path d="M16 8V24M12 12L16 8L20 12M12 20L16 24L20 20" stroke="white" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round" />
+                        <defs>
+                            <linearGradient id="gradient1" x1="0" y1="0" x2="32" y2="32">
+                                <stop offset="0%" stop-color="#667eea" />
+                                <stop offset="100%" stop-color="#764ba2" />
+                            </linearGradient>
+                        </defs>
+                    </svg>
+                    <h1>Finans Takip</h1>
+                </div>
+                <div class="header-actions">
+                    <button class="btn-icon" id="categoryManageBtn" aria-label="Kategori Yönetimi"
+                        title="Kategori Yönetimi">
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                            <path
+                                d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zM5 11a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zM11 5a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zM13 11a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2h-2z" />
+                        </svg>
+                    </button>
+                    <button class="btn-icon" id="themeToggle" aria-label="Tema Değiştir">
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                            <path
+                                d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Summary Cards -->
+            <section class="summary-section">
+                <div class="summary-card income-card">
+                    <div class="card-icon income-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <path d="M12 5v14m7-7l-7-7-7 7" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round" />
+                        </svg>
+                    </div>
+                    <div class="card-content">
+                        <p class="card-label">Aylık Toplam Gelir</p>
+                        <h2 class="card-value" id="monthlyIncome">€0.00</h2>
+                    </div>
+                </div>
+
+                <div class="summary-card expense-card">
+                    <div class="card-icon expense-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <path d="M12 19V5m-7 7l7 7 7-7" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round" />
+                        </svg>
+                    </div>
+                    <div class="card-content">
+                        <p class="card-label">Aylık Toplam Gider</p>
+                        <h2 class="card-value" id="monthlyExpense">€0.00</h2>
+                    </div>
+                </div>
+
+                <div class="summary-card cash-card">
+                    <div class="card-icon cash">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <rect x="2" y="6" width="20" height="12" rx="2" />
+                            <circle cx="12" cy="12" r="2" />
+                            <path d="M6 12h.01M18 12h.01" />
+                        </svg>
+                    </div>
+                    <div class="card-content" style="cursor: pointer;">
+                        <p class="card-label">Nakit Bakiye <small style="opacity: 0.6; font-size: 0.7em;">(tıklayarak
+                                düzenle)</small></p>
+                        <h2 class="card-value" id="cashBalance">€0.00</h2>
+                    </div>
+                </div>
+
+                <div class="summary-card bank-card">
+                    <div class="card-icon bank">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <path
+                                d="M3 21h18M5 10v7M9 10v7M13 10v7M17 10v7M21 21v-8a2 2 0 00-2-2H5a2 2 0 00-2 2v8M12 2L2 7h20L12 2z" />
+                        </svg>
+                    </div>
+                    <div class="card-content" style="cursor: pointer;">
+                        <p class="card-label">Banka Bakiye <small style="opacity: 0.6; font-size: 0.7em;">(tıklayarak
+                                düzenle)</small></p>
+                        <h2 class="card-value" id="bankBalance">€0.00</h2>
+                    </div>
+                </div>
+
+                <div class="summary-card installment-card">
+                    <div class="card-icon installment-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <rect x="3" y="4" width="18" height="16" rx="2" stroke-width="2" />
+                            <path d="M3 10h18M7 15h4" stroke-width="2" stroke-linecap="round" />
+                        </svg>
+                    </div>
+                    <div class="card-content">
+                        <p class="card-label">Aktif Taksit Tutarı</p>
+                        <h2 class="card-value" id="activeInstallmentAmount">€0.00</h2>
+                    </div>
+                </div>
+
+            </section>
+
+            <!-- Tabs -->
+            <section class="tabs-section">
+                <div class="tabs">
+                    <button class="tab-btn active" data-tab="transactions">İşlemler</button>
+                    <button class="tab-btn" data-tab="installments">Taksitler</button>
+                </div>
+
+                <!-- Transactions Tab -->
+                <div class="tab-content active" id="transactions-tab">
+                    <div class="content-header">
+                        <h3>İşlem Geçmişi</h3>
+                        <button class="btn-primary" id="addTransactionBtn">
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                                <path d="M10 5v10m5-5H5" stroke="white" stroke-width="2" stroke-linecap="round" />
+                            </svg>
+                            Yeni İşlem
+                        </button>
+                    </div>
+
+                    <div class="filter-section">
+                        <select id="filterType" class="filter-select">
+                            <option value="all">Tümü</option>
+                            <option value="income">Gelir</option>
+                            <option value="expense">Gider</option>
+                        </select>
+                    </div>
+
+                    <div class="transactions-list" id="transactionsList">
+                        <div class="empty-state">
+                            <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+                                <circle cx="32" cy="32" r="30" stroke="currentColor" stroke-width="2" opacity="0.2" />
+                                <path d="M32 20v24m12-12H20" stroke="currentColor" stroke-width="2"
+                                    stroke-linecap="round" opacity="0.3" />
+                            </svg>
+                            <p>Henüz işlem bulunmuyor</p>
+                            <p class="empty-state-hint">Yeni bir işlem ekleyerek başlayın</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Installments Tab -->
+                <div class="tab-content" id="installments-tab">
+                    <div class="content-header">
+                        <h3>Taksit Takibi</h3>
+                        <button class="btn-primary" id="addInstallmentBtn">
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                                <path d="M10 5v10m5-5H5" stroke="white" stroke-width="2" stroke-linecap="round" />
+                            </svg>
+                            Yeni Taksit
+                        </button>
+                    </div>
+
+                    <div class="installments-list" id="installmentsList">
+                        <div class="empty-state">
+                            <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+                                <rect x="12" y="16" width="40" height="32" rx="4" stroke="currentColor" stroke-width="2"
+                                    opacity="0.2" />
+                                <path d="M12 26h40M22 36h12" stroke="currentColor" stroke-width="2"
+                                    stroke-linecap="round" opacity="0.3" />
+                            </svg>
+                            <p>Henüz taksit bulunmuyor</p>
+                            <p class="empty-state-hint">Yeni bir taksit ekleyerek başlayın</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Transaction Modal -->
+    <div class="modal" id="transactionModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="transactionModalTitle">Yeni İşlem</h3>
+                <button class="btn-icon" id="closeTransactionModal">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M6 6l8 8m0-8l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                    </svg>
+                </button>
+            </div>
+            <form id="transactionForm">
+                <div class="form-group">
+                    <label>İşlem Tipi</label>
+                    <div class="type-selector">
+                        <button type="button" class="type-btn active" data-type="income">
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor">
+                                <path d="M10 4v12m6-6l-6-6-6 6" stroke-width="2" stroke-linecap="round"
+                                    stroke-linejoin="round" />
+                            </svg>
+                            Gelir
+                        </button>
+                        <button type="button" class="type-btn" data-type="expense">
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor">
+                                <path d="M10 16V4m-6 6l6 6 6-6" stroke-width="2" stroke-linecap="round"
+                                    stroke-linejoin="round" />
+                            </svg>
+                            Gider
+                        </button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Ödeme Yöntemi</label>
+                    <div class="type-selector">
+                        <button type="button" class="payment-btn active" data-payment="cash">
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor">
+                                <path d="M10 2v16M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" stroke-width="2"
+                                    stroke-linecap="round" stroke-linejoin="round" />
+                            </svg>
+                            Nakit
+                        </button>
+                        <button type="button" class="payment-btn" data-payment="bank">
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor">
+                                <path d="M3 17h14M4 14h12M6 14V7m3 7V7m3 7V7m3 7V7M4 7l6-5 6 5" stroke-width="2"
+                                    stroke-linecap="round" stroke-linejoin="round" />
+                            </svg>
+                            Banka
+                        </button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="transactionDescription">Açıklama</label>
+                    <input type="text" id="transactionDescription" required placeholder="Örn: Maaş, Market alışverişi">
+                </div>
+
+                <div class="form-group">
+                    <label for="transactionAmount">Tutar (€)</label>
+                    <input type="number" id="transactionAmount" step="0.01" required placeholder="0.00">
+                </div>
+
+                <div class="form-group">
+                    <label for="transactionDate">Tarih</label>
+                    <input type="date" id="transactionDate" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="transactionCategory">Kategori</label>
+                    <select id="transactionCategory" required>
+                        <option value="">Seçiniz</option>
+                        <optgroup label="Gelir Kategorileri" id="incomeCategories">
+                            <option value="salary">Maaş</option>
+                            <option value="freelance">Serbest Çalışma</option>
+                            <option value="investment">Yatırım</option>
+                            <option value="other-income">Diğer</option>
+                        </optgroup>
+                        <optgroup label="Gider Kategorileri" id="expenseCategories" style="display: none;">
+                            <option value="food">Yiyecek & İçecek</option>
+                            <option value="transport">Ulaşım</option>
+                            <option value="bills">Faturalar</option>
+                            <option value="shopping">Alışveriş</option>
+                            <option value="health">Sağlık</option>
+                            <option value="entertainment">Eğlence</option>
+                            <option value="other-expense">Diğer</option>
+                        </optgroup>
+                    </select>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn-secondary" id="cancelTransaction">İptal</button>
+                    <button type="submit" class="btn-primary">Kaydet</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Installment Modal -->
+    <div class="modal" id="installmentModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Yeni Taksit</h3>
+                <button class="btn-icon" id="closeInstallmentModal">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M6 6l8 8m0-8l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                    </svg>
+                </button>
+            </div>
+            <form id="installmentForm">
+                <div class="form-group">
+                    <label for="installmentDescription">Açıklama</label>
+                    <input type="text" id="installmentDescription" required placeholder="Örn: Laptop, Telefon">
+                </div>
+
+                <div class="form-group">
+                    <label for="installmentTotal">Toplam Tutar (€)</label>
+                    <input type="number" id="installmentTotal" step="0.01" required placeholder="0.00">
+                </div>
+
+                <div class="form-group">
+                    <label for="installmentCount">Taksit Sayısı</label>
+                    <input type="number" id="installmentCount" min="2" max="36" required placeholder="12">
+                </div>
+
+                <div class="form-group">
+                    <label for="installmentStart">Başlangıç Tarihi</label>
+                    <input type="date" id="installmentStart" required>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn-secondary" id="cancelInstallment">İptal</button>
+                    <button type="submit" class="btn-primary">Kaydet</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+
+    <!-- Initial Balance Modal -->
+    <div class="modal active" id="initialBalanceModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Hoş Geldiniz! 🎉</h3>
+            </div>
+            <form id="initialBalanceForm">
+                <p style="margin-bottom: 24px; color: var(--text-secondary);">
+                    Başlamak için mevcut bakiyelerinizi girin:
+                </p>
+
+                <div class="form-group">
+                    <label for="initialCash">Nakit Bakiye (₺)</label>
+                    <input type="number" id="initialCash" step="0.01" value="0" required placeholder="0.00">
+                </div>
+
+                <div class="form-group">
+                    <label for="initialBank">Banka Bakiye (₺)</label>
+                    <input type="number" id="initialBank" step="0.01" value="0" required placeholder="0.00">
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary" style="width: 100%;">Başla</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Category Management Modal -->
+    <div class="modal" id="categoryModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Kategori Yönetimi</h3>
+                <button class="btn-icon" id="closeCategoryModal">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M6 6l8 8m0-8l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                    </svg>
+                </button>
+            </div>
+            <div style="padding: var(--spacing-lg);">
+                <div class="category-section">
+                    <h4 style="margin-bottom: var(--spacing-md); color: var(--income-color);">Gelir Kategorileri</h4>
+                    <div class="form-group">
+                        <div style="display: flex; gap: var(--spacing-sm);">
+                            <input type="text" id="newIncomeCategory" placeholder="Yeni kategori adı" style="flex: 1;">
+                            <button type="button" class="btn-primary" id="addIncomeCategory">
+                                <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                                    <path d="M10 5v10m5-5H5" stroke="white" stroke-width="2" stroke-linecap="round" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    <div id="incomeCategoriesList" class="categories-list"></div>
+                </div>
+
+                <hr style="margin: var(--spacing-lg) 0; border: none; border-top: 1px solid var(--bg-tertiary);">
+
+                <div class="category-section">
+                    <h4 style="margin-bottom: var(--spacing-md); color: var(--expense-color);">Gider Kategorileri</h4>
+                    <div class="form-group">
+                        <div style="display: flex; gap: var(--spacing-sm);">
+                            <input type="text" id="newExpenseCategory" placeholder="Yeni kategori adı" style="flex: 1;">
+                            <button type="button" class="btn-primary" id="addExpenseCategory">
+                                <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                                    <path d="M10 5v10m5-5H5" stroke="white" stroke-width="2" stroke-linecap="round" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    <div id="expenseCategoriesList" class="categories-list"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+
+</html>
