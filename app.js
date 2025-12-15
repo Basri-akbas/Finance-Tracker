@@ -44,9 +44,7 @@ class FinanceTracker {
     }
 
     async init() {
-        // Remove initial balance modal if present
-        const initialModal = document.getElementById('initialBalanceModal');
-        if (initialModal) initialModal.classList.remove('active');
+
 
         this.setupEventListeners();
 
@@ -400,29 +398,45 @@ class FinanceTracker {
         const submitBtn = form.querySelector('button[type="submit"]');
         submitBtn.disabled = true;
 
-        const transactionData = {
-            type: this.currentTransactionType,
-            paymentMethod: this.currentPaymentMethod,
-            description: document.getElementById('transactionDescription').value,
-            amount: parseFloat(document.getElementById('transactionAmount').value),
-            date: document.getElementById('transactionDate').value,
-            category: document.getElementById('transactionCategory').value,
-            createdAt: new Date().toISOString()
-        };
-
         try {
+            const description = document.getElementById('transactionDescription').value;
+            const amountVal = document.getElementById('transactionAmount').value;
+            const date = document.getElementById('transactionDate').value;
+            const category = document.getElementById('transactionCategory').value;
+
+            if (!description || !amountVal || !date || !category) {
+                alert("Lütfen tüm alanları doldurun.");
+                submitBtn.disabled = false;
+                return;
+            }
+
+            // Find existing existing transaction for createdAt safely
+            let createdAt = new Date().toISOString();
             if (form.dataset.editId) {
-                // Update
+                const existing = this.transactions.find(t => t.id === form.dataset.editId);
+                if (existing && existing.createdAt) {
+                    createdAt = existing.createdAt;
+                }
+            }
+
+            const transactionData = {
+                type: this.currentTransactionType,
+                paymentMethod: this.currentPaymentMethod,
+                description: description,
+                amount: parseFloat(amountVal),
+                date: date,
+                category: category,
+                createdAt: createdAt
+            };
+
+            if (form.dataset.editId) {
                 const ref = doc(db, "transactions", form.dataset.editId);
                 await updateDoc(ref, transactionData);
-
-                // Update local state
                 const index = this.transactions.findIndex(t => t.id === form.dataset.editId);
                 if (index !== -1) {
                     this.transactions[index] = { id: form.dataset.editId, ...transactionData };
                 }
             } else {
-                // Add
                 const docRef = await addDoc(collection(db, "transactions"), transactionData);
                 this.transactions.unshift({ id: docRef.id, ...transactionData });
             }
@@ -432,7 +446,7 @@ class FinanceTracker {
             this.closeTransactionModal();
         } catch (error) {
             console.error("Error saving transaction:", error);
-            alert("İşlem kaydedilirken bir hata oluştu.");
+            alert(`İşlem kaydedilirken bir hata oluştu: ${error.message}`);
         } finally {
             submitBtn.disabled = false;
         }
@@ -470,20 +484,37 @@ class FinanceTracker {
         const submitBtn = form.querySelector('button[type="submit"]');
         submitBtn.disabled = true;
 
-        const totalAmount = parseFloat(document.getElementById('installmentTotal').value);
-        const installmentCount = parseInt(document.getElementById('installmentCount').value);
-
-        const installmentData = {
-            description: document.getElementById('installmentDescription').value,
-            totalAmount: totalAmount,
-            installmentCount: installmentCount,
-            monthlyAmount: totalAmount / installmentCount,
-            startDate: document.getElementById('installmentStart').value,
-            paidCount: 0,
-            createdAt: new Date().toISOString()
-        };
-
         try {
+            const description = document.getElementById('installmentDescription').value;
+            const totalAmountVal = document.getElementById('installmentTotal').value;
+            const installmentCountVal = document.getElementById('installmentCount').value;
+            const startDate = document.getElementById('installmentStart').value;
+
+            if (!description || !totalAmountVal || !installmentCountVal || !startDate) {
+                alert("Lütfen tüm alanları doldurun.");
+                submitBtn.disabled = false;
+                return;
+            }
+
+            const totalAmount = parseFloat(totalAmountVal);
+            const installmentCount = parseInt(installmentCountVal);
+
+            if (isNaN(totalAmount) || isNaN(installmentCount) || installmentCount <= 0) {
+                alert("Lütfen geçerli değerler girin.");
+                submitBtn.disabled = false;
+                return;
+            }
+
+            const installmentData = {
+                description: description,
+                totalAmount: totalAmount,
+                installmentCount: installmentCount,
+                monthlyAmount: totalAmount / installmentCount,
+                startDate: startDate,
+                paidCount: 0,
+                createdAt: new Date().toISOString()
+            };
+
             const docRef = await addDoc(collection(db, "installments"), installmentData);
             this.installments.unshift({ id: docRef.id, ...installmentData });
 
@@ -492,7 +523,7 @@ class FinanceTracker {
             this.closeInstallmentModal();
         } catch (error) {
             console.error("Error saving installment:", error);
-            alert("Taksit kaydedilirken bir hata oluştu.");
+            alert(`Taksit kaydedilirken bir hata oluştu: ${error.message}`);
         } finally {
             submitBtn.disabled = false;
         }
