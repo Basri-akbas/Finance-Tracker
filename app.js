@@ -135,9 +135,15 @@ class FinanceTracker {
         if (newBalance !== null && newBalance !== '') {
             const parsedBalance = parseFloat(newBalance);
             if (!isNaN(parsedBalance)) {
-                const newBalances = { ...this.initialBalances, [type]: parsedBalance };
-                await this.saveInitialBalances(newBalances);
-                this.updateSummary();
+                try {
+                    const newBalances = { ...this.initialBalances, [type]: parsedBalance };
+                    await this.saveInitialBalances(newBalances);
+                    this.updateSummary();
+                    console.log(`${label} updated to ${parsedBalance}`);
+                } catch (error) {
+                    console.error("Error saving balance:", error);
+                    alert("Bakiye kaydedilirken bir hata oluştu. Lütfen tekrar deneyin.");
+                }
             } else {
                 alert('Lütfen geçerli bir sayı girin.');
             }
@@ -150,8 +156,11 @@ class FinanceTracker {
         document.getElementById('themeToggle').addEventListener('click', () => this.toggleTheme());
 
         // Balance card click to edit
-        document.getElementById('cashBalance').addEventListener('click', () => this.editBalance('cash'));
-        document.getElementById('bankBalance').addEventListener('click', () => this.editBalance('bank'));
+        const cashCard = document.getElementById('cashBalanceCard');
+        const bankCard = document.getElementById('bankBalanceCard');
+
+        if (cashCard) cashCard.addEventListener('click', () => this.editBalance('cash'));
+        if (bankCard) bankCard.addEventListener('click', () => this.editBalance('bank'));
 
         // Category management
         document.getElementById('categoryManageBtn').addEventListener('click', () => this.openCategoryModal());
