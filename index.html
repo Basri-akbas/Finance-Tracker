@@ -370,6 +370,30 @@
     <!-- Initial Balance Modal -->
 
 
+    <!-- Balance Editing Modal -->
+    <div class="modal" id="balanceModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="balanceModalTitle">Bakiyeyi Düzenle</h3>
+                <button class="btn-icon" id="closeBalanceModal">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M6 6l8 8m0-8l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                    </svg>
+                </button>
+            </div>
+            <form id="balanceForm">
+                <div class="form-group">
+                    <label for="newBalanceValue">Yeni Bakiye (€)</label>
+                    <input type="number" id="newBalanceValue" step="0.01" required placeholder="0.00">
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn-secondary" id="cancelBalance">İptal</button>
+                    <button type="submit" class="btn-primary">Kaydet</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Category Management Modal -->
     <div class="modal" id="categoryModal">
         <div class="modal-content">

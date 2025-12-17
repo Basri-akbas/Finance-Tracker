@@ -136,27 +136,37 @@ class FinanceTracker {
     }
 
     // Balance Editing
-    async editBalance(type) {
+    editBalance(type) {
+        this.currentEditingBalanceType = type;
         const currentBalance = this.initialBalances[type] || 0;
         const label = type === 'cash' ? 'Nakit Bakiye' : 'Banka Bakiye';
-        const newBalance = prompt(`${label} düzenle (€):`, currentBalance);
 
-        if (newBalance !== null && newBalance !== '') {
-            const parsedBalance = parseFloat(newBalance);
-            if (!isNaN(parsedBalance)) {
-                try {
-                    const newBalances = { ...this.initialBalances, [type]: parsedBalance };
-                    await this.saveInitialBalances(newBalances);
-                    this.updateSummary();
-                    console.log(`${label} updated to ${parsedBalance}`);
-                } catch (error) {
-                    console.error("Error saving balance:", error);
-                    alert("Bakiye kaydedilirken bir hata oluştu. Lütfen tekrar deneyin.");
-                }
-            } else {
-                alert('Lütfen geçerli bir sayı girin.');
+        document.getElementById('balanceModalTitle').textContent = `${label} Düzenle`;
+        document.getElementById('newBalanceValue').value = currentBalance;
+        document.getElementById('balanceModal').classList.add('active');
+    }
+
+    async handleBalanceSubmit(e) {
+        e.preventDefault();
+        const type = this.currentEditingBalanceType;
+        const newValue = parseFloat(document.getElementById('newBalanceValue').value);
+
+        if (!isNaN(newValue)) {
+            try {
+                const newBalances = { ...this.initialBalances, [type]: newValue };
+                await this.saveInitialBalances(newBalances);
+                this.updateSummary();
+                this.closeBalanceModal();
+            } catch (error) {
+                console.error("Error saving balance:", error);
+                alert("Bakiye kaydedilirken bir hata oluştu.");
             }
         }
+    }
+
+    closeBalanceModal() {
+        document.getElementById('balanceModal').classList.remove('active');
+        document.getElementById('balanceForm').reset();
     }
 
     // Event Listeners
@@ -203,6 +213,11 @@ class FinanceTracker {
         document.getElementById('closeInstallmentModal').addEventListener('click', () => this.closeInstallmentModal());
         document.getElementById('cancelInstallment').addEventListener('click', () => this.closeInstallmentModal());
         document.getElementById('installmentForm').addEventListener('submit', (e) => this.handleInstallmentSubmit(e));
+
+        // Balance Modal
+        document.getElementById('closeBalanceModal').addEventListener('click', () => this.closeBalanceModal());
+        document.getElementById('cancelBalance').addEventListener('click', () => this.closeBalanceModal());
+        document.getElementById('balanceForm').addEventListener('submit', (e) => this.handleBalanceSubmit(e));
 
         // Filter
         document.getElementById('filterType').addEventListener('change', (e) => {
