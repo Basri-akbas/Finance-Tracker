@@ -10,8 +10,16 @@ import {
     updateDoc,
     setDoc,
     query,
-    orderBy
+    orderBy,
+    where
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import {
+    getAuth,
+    signInWithEmailAndPassword,
+    createUserWithEmailAndPassword,
+    signOut,
+    onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
 // Firebase Configuration
 const firebaseConfig = {
@@ -27,6 +35,7 @@ const firebaseConfig = {
 // Initialize Firebase
 const firebaseApp = initializeApp(firebaseConfig);
 const db = getFirestore(firebaseApp);
+const auth = getAuth(firebaseApp);
 
 // Data Management
 class FinanceTracker {
@@ -41,12 +50,18 @@ class FinanceTracker {
         this.currentTransactionType = 'income';
         this.currentPaymentMethod = 'cash';
 
+        this.user = null;
+        this.authMode = 'login'; // 'login' or 'register'
+
         this.init();
     }
 
-    async init() {
+    init() {
+        this.setupAuthListeners();
+        this.loadTheme();
+    }
 
-
+    async handlePostAuthInit() {
         this.setupEventListeners();
 
         try {
@@ -61,49 +76,154 @@ class FinanceTracker {
         this.renderInstallments();
         this.renderRecurringTemplates();
         this.checkRecurringTransactions();
-        this.loadTheme();
         this.setDefaultDate();
         this.renderCustomCategories();
         this.updateCategoryDropdowns();
     }
 
-    async loadAllData() {
-        // Load Initial Balances
-        const settingsSnap = await getDocs(collection(db, "settings"));
-        settingsSnap.forEach(doc => {
-            if (doc.id === "initialBalances") {
-                this.initialBalances = doc.data();
-            } else if (doc.id === "customCategories") {
-                this.customCategories = doc.data();
+    setupAuthListeners() {
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                this.user = user;
+                document.getElementById('authContainer').style.display = 'none';
+                document.getElementById('appMain').style.display = 'flex';
+                this.handlePostAuthInit();
+            } else {
+                this.user = null;
+                document.getElementById('authContainer').style.display = 'flex';
+                document.getElementById('appMain').style.display = 'none';
             }
         });
 
-        // Initialize settings if they don't exist
-        if (settingsSnap.empty || !this.initialBalances) {
-            await this.saveInitialBalances({ cash: 0, bank: 0 });
+        document.getElementById('authForm').addEventListener('submit', (e) => this.handleAuthSubmit(e));
+        document.getElementById('toggleAuthMode').addEventListener('click', (e) => {
+            e.preventDefault();
+            this.toggleAuthMode();
+        });
+    }
+
+    async handleAuthSubmit(e) {
+        e.preventDefault();
+        const email = document.getElementById('authEmail').value;
+        const password = document.getElementById('authPassword').value;
+        const submitBtn = document.getElementById('authSubmitBtn');
+
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'İşlem yapılıyor...';
+
+        try {
+            if (this.authMode === 'login') {
+                await signInWithEmailAndPassword(auth, email, password);
+            } else {
+                await createUserWithEmailAndPassword(auth, email, password);
+            }
+        } catch (error) {
+            console.error("Auth error:", error);
+            let message = "Bir hata oluştu.";
+            if (error.code === 'auth/wrong-password') message = "Hatalı şifre.";
+            else if (error.code === 'auth/user-not-found') message = "Kullanıcı bulunamadı.";
+            else if (error.code === 'auth/email-already-in-use') message = "Bu e-posta zaten kullanımda.";
+            else if (error.code === 'auth/weak-password') message = "Şifre çok zayıf (en az 6 karakter).";
+            alert(message);
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.textContent = this.authMode === 'login' ? 'Giriş Yap' : 'Kayıt Ol';
         }
-        if (!this.customCategories.income) {
-            await this.saveCustomCategories({ income: [], expense: [] });
+    }
+
+    toggleAuthMode() {
+        this.authMode = this.authMode === 'login' ? 'register' : 'login';
+        const title = document.getElementById('authTitle');
+        const subtitle = document.getElementById('authSubtitle');
+        const submitBtn = document.getElementById('authSubmitBtn');
+        const toggleLink = document.getElementById('toggleAuthMode');
+
+        if (this.authMode === 'login') {
+            title.textContent = 'Hoş Geldiniz';
+            subtitle.textContent = 'Lütfen hesabınıza giriş yapın';
+            submitBtn.textContent = 'Giriş Yap';
+            toggleLink.innerHTML = 'Hesabınız yok mu? <a href="#">Kayıt Ol</a>';
+        } else {
+            title.textContent = 'Kayıt Ol';
+            subtitle.textContent = 'Yeni bir hesap oluşturun';
+            submitBtn.textContent = 'Kayıt Ol';
+            toggleLink.innerHTML = 'Zaten hesabınız var mı? <a href="#">Giriş Yap</a>';
+        }
+    }
+
+    async logout() {
+        if (confirm('Çıkış yapmak istediğinizden emin misiniz?')) {
+            await signOut(auth);
+            window.location.reload();
+        }
+    }
+
+    async loadAllData() {
+        if (!this.user) return;
+
+        // Load Settings (Balances & Categories) - Now stored under settings/USER_ID
+        const settingsRef = doc(db, "settings", this.user.uid);
+        const settingsSnap = await getDocs(collection(db, "settings")); // We need to filter this or just target the doc
+
+        // Target specific doc for user settings
+        const userSettingsRef = doc(db, "settings", this.user.uid);
+        // Load initial balances and custom categories from user document
+        // We'll restructure settings to store everything for one user in one doc
+        // OR better: settings/{userId}/balances and settings/{userId}/categories
+
+        // Let's use a simple approach: settings/{userId} stores both
+        const userSettingsSnap = await getDocs(query(collection(db, "settings")));
+        // Actually let's just use getDoc for single user
+        // But for consistency let's stick to their existing structure but scoped
+
+        // Load Initial Balances & Categories
+        const qSettings = collection(db, "settings");
+        const sSnap = await getDocs(qSettings);
+        let userSettingsFound = false;
+
+        sSnap.forEach(doc => {
+            if (doc.id === this.user.uid) {
+                const data = doc.data();
+                this.initialBalances = data.initialBalances || { cash: 0, bank: 0 };
+                this.customCategories = data.customCategories || { income: [], expense: [] };
+                userSettingsFound = true;
+            }
+        });
+
+        if (!userSettingsFound) {
+            await this.saveUserSettings();
         }
 
-        // Load Transactions
-        const qTransactions = query(collection(db, "transactions"), orderBy("date", "desc"));
+        // Load Transactions (scoped to userId)
+        const qTransactions = query(
+            collection(db, "transactions"),
+            where("userId", "==", this.user.uid),
+            orderBy("date", "desc")
+        );
         const transSnap = await getDocs(qTransactions);
         this.transactions = [];
         transSnap.forEach(doc => {
             this.transactions.push({ id: doc.id, ...doc.data() });
         });
 
-        // Load Installments
-        const qInstallments = query(collection(db, "installments"), orderBy("createdAt", "desc"));
+        // Load Installments (scoped to userId)
+        const qInstallments = query(
+            collection(db, "installments"),
+            where("userId", "==", this.user.uid),
+            orderBy("createdAt", "desc")
+        );
         const instSnap = await getDocs(qInstallments);
         this.installments = [];
         instSnap.forEach(doc => {
             this.installments.push({ id: doc.id, ...doc.data() });
         });
 
-        // Load Recurring Templates
-        const qRecurring = query(collection(db, "recurringTemplates"), orderBy("createdAt", "desc"));
+        // Load Recurring Templates (scoped to userId)
+        const qRecurring = query(
+            collection(db, "recurringTemplates"),
+            where("userId", "==", this.user.uid),
+            orderBy("createdAt", "desc")
+        );
         const recSnap = await getDocs(qRecurring);
         this.recurringTemplates = [];
         recSnap.forEach(doc => {
@@ -111,15 +231,23 @@ class FinanceTracker {
         });
     }
 
-    // Settings (Balances & Categories)
+    async saveUserSettings() {
+        if (!this.user) return;
+        await setDoc(doc(db, "settings", this.user.uid), {
+            initialBalances: this.initialBalances,
+            customCategories: this.customCategories
+        });
+    }
+
+    // Update existing save methods to use the new scoped structure
     async saveInitialBalances(data) {
         this.initialBalances = data;
-        await setDoc(doc(db, "settings", "initialBalances"), data);
+        await this.saveUserSettings();
     }
 
     async saveCustomCategories(data) {
         this.customCategories = data;
-        await setDoc(doc(db, "settings", "customCategories"), data);
+        await this.saveUserSettings();
     }
 
     // Theme
@@ -173,6 +301,10 @@ class FinanceTracker {
     setupEventListeners() {
         // Theme toggle
         document.getElementById('themeToggle').addEventListener('click', () => this.toggleTheme());
+
+        // Logout
+        const logoutBtn = document.getElementById('logoutBtn');
+        if (logoutBtn) logoutBtn.addEventListener('click', () => this.logout());
 
         // Balance card click to edit
         const cashCard = document.getElementById('cashBalanceCard');
@@ -454,6 +586,7 @@ class FinanceTracker {
             }
 
             const transactionData = {
+                userId: this.user.uid,
                 type: this.currentTransactionType,
                 paymentMethod: this.currentPaymentMethod,
                 description: description,
@@ -558,6 +691,7 @@ class FinanceTracker {
             }
 
             const installmentData = {
+                userId: this.user.uid,
                 description: description,
                 totalAmount: totalAmount,
                 installmentCount: installmentCount,
@@ -626,6 +760,7 @@ class FinanceTracker {
                 try {
                     // Create transaction
                     const transactionData = {
+                        userId: this.user.uid,
                         type: template.type,
                         paymentMethod: template.paymentMethod || 'cash',
                         description: template.description,
