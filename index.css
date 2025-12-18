@@ -817,3 +817,191 @@ form {
 ::-webkit-scrollbar-thumb:hover {
     background: var(--text-tertiary);
 }
+
+/* Summary Tab Styling */
+.summary-grid {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xl);
+}
+
+.summary-breakdown-card {
+    background: var(--bg-primary);
+    padding: var(--spacing-lg);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--bg-tertiary);
+}
+
+.net-card {
+    border-left: 4px solid var(--accent-primary-solid);
+}
+
+.breakdown-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--spacing-xs);
+}
+
+.breakdown-header span:first-child {
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.net-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+}
+
+.breakdown-hint {
+    font-size: 0.875rem;
+    color: var(--text-tertiary);
+}
+
+.breakdown-columns {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--spacing-xl);
+}
+
+.column-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 1rem;
+    font-weight: 700;
+    margin-bottom: var(--spacing-md);
+    padding-bottom: var(--spacing-xs);
+    border-bottom: 2px solid var(--bg-tertiary);
+}
+
+.header-total {
+    font-size: 0.9rem;
+    opacity: 0.8;
+}
+
+.column-title.income {
+    color: var(--income-color);
+    border-bottom-color: var(--income-bg);
+}
+
+.column-title.expense {
+    color: var(--expense-color);
+    border-bottom-color: var(--expense-bg);
+}
+
+.breakdown-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+}
+
+.breakdown-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.item-info {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.item-bar-container {
+    height: 8px;
+    background: var(--bg-tertiary);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.item-bar {
+    height: 100%;
+    border-radius: 4px;
+    transition: width var(--transition-slow);
+}
+
+.income .item-bar {
+    background: var(--income-color);
+}
+
+.expense .item-bar {
+    background: var(--expense-color);
+}
+
+.empty-hint {
+    text-align: center;
+    color: var(--text-tertiary);
+    font-size: 0.875rem;
+    padding: var(--spacing-lg);
+}
+
+@media (max-width: 768px) {
+    .breakdown-columns {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Monthly History Styling */
+.history-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: var(--spacing-md);
+}
+
+.history-card {
+    background: var(--bg-primary);
+    padding: var(--spacing-md);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--bg-tertiary);
+    transition: all var(--transition-fast);
+}
+
+.history-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--accent-primary-solid);
+    box-shadow: var(--shadow-md);
+}
+
+.history-card-header {
+    font-weight: 700;
+    font-size: 1rem;
+    margin-bottom: var(--spacing-sm);
+    color: var(--text-primary);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.history-card-body {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.history-stat {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.9rem;
+}
+
+.history-stat .label {
+    color: var(--text-secondary);
+}
+
+.history-stat .value {
+    font-weight: 600;
+}
+
+.history-stat.income .value {
+    color: var(--income-color);
+}
+
+.history-stat.expense .value {
+    color: var(--expense-color);
+}
+
+.history-stat.net .value {
+    font-weight: 700;
+}

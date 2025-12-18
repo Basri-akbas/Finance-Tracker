@@ -345,6 +345,10 @@ class FinanceTracker {
         document.querySelectorAll('.tab-content').forEach(content => {
             content.classList.toggle('active', content.id === `${tabName}-tab`);
         });
+
+        if (tabName === 'summary') {
+            this.updateSummary();
+        }
     }
 
     // Transaction Modal
@@ -388,6 +392,7 @@ class FinanceTracker {
     }
 
     selectTransactionType(btn) {
+        if (!btn) return;
         const type = btn.dataset.type;
         this.currentTransactionType = type;
 
@@ -399,19 +404,20 @@ class FinanceTracker {
         const expenseCategories = document.getElementById('expenseCategories');
 
         if (type === 'income') {
-            incomeCategories.style.display = '';
-            expenseCategories.style.display = 'none';
-            const firstOption = incomeCategories.querySelector('option');
+            if (incomeCategories) incomeCategories.style.display = '';
+            if (expenseCategories) expenseCategories.style.display = 'none';
+            const firstOption = incomeCategories ? incomeCategories.querySelector('option') : null;
             if (firstOption) document.getElementById('transactionCategory').value = firstOption.value;
         } else {
-            incomeCategories.style.display = 'none';
-            expenseCategories.style.display = '';
-            const firstOption = expenseCategories.querySelector('option');
+            if (incomeCategories) incomeCategories.style.display = 'none';
+            if (expenseCategories) expenseCategories.style.display = '';
+            const firstOption = expenseCategories ? expenseCategories.querySelector('option') : null;
             if (firstOption) document.getElementById('transactionCategory').value = firstOption.value;
         }
     }
 
     selectPaymentMethod(btn) {
+        if (!btn) return;
         const payment = btn.dataset.payment;
         this.currentPaymentMethod = payment;
 
@@ -775,10 +781,146 @@ class FinanceTracker {
         document.getElementById('cashBalance').textContent = this.formatCurrency(cashBalance);
         document.getElementById('bankBalance').textContent = this.formatCurrency(bankBalance);
         document.getElementById('activeInstallmentAmount').textContent = this.formatCurrency(activeInstallmentAmount);
+
+        // Update Detailed Summary
+        this.renderMonthlySummary(monthlyTransactions, monthlyIncome, monthlyExpense);
+        this.renderMonthlyHistory();
+    }
+
+    renderMonthlySummary(transactions, totalIncome, totalExpense) {
+        const monthNames = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
+        const now = new Date();
+        const monthYear = `${monthNames[now.getMonth()]} ${now.getFullYear()}`;
+
+        const monthEl = document.getElementById('summaryMonthName');
+        if (monthEl) monthEl.textContent = monthYear;
+
+        // Net Status
+        const netStatus = totalIncome - totalExpense;
+        const netEl = document.getElementById('monthlyNetStatus');
+        if (netEl) {
+            netEl.textContent = this.formatCurrency(netStatus);
+            netEl.style.color = netStatus >= 0 ? 'var(--income-color)' : 'var(--expense-color)';
+        }
+
+        // Update Column Totals
+        const summaryIncomeTotal = document.getElementById('summaryIncomeTotal');
+        if (summaryIncomeTotal) {
+            summaryIncomeTotal.textContent = `Toplam: ${this.formatCurrency(totalIncome)}`;
+        }
+
+        const summaryExpenseTotal = document.getElementById('summaryExpenseTotal');
+        if (summaryExpenseTotal) {
+            summaryExpenseTotal.textContent = `Toplam: ${this.formatCurrency(totalExpense)}`;
+        }
+
+        // Grouping
+        const groupByCategory = (type) => {
+            const list = transactions.filter(t => t.type === type);
+            const groups = {};
+            list.forEach(t => {
+                const catId = t.category;
+                groups[catId] = (groups[catId] || 0) + t.amount;
+            });
+            return Object.entries(groups)
+                .map(([id, amount]) => ({ id, amount, name: this.getCategoryName(id) }))
+                .sort((a, b) => b.amount - a.amount);
+        };
+
+        const incomeGroups = groupByCategory('income');
+        const expenseGroups = groupByCategory('expense');
+
+        const renderList = (groups, containerId, total, type) => {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+
+            if (groups.length === 0) {
+                container.innerHTML = `<p class="empty-hint">Bu ay henüz ${type === 'income' ? 'gelir' : 'gider'} bulunmuyor</p>`;
+                return;
+            }
+
+            container.innerHTML = groups.map(g => {
+                const percentage = total > 0 ? (g.amount / total) * 100 : 0;
+                return `
+                    <div class="breakdown-item">
+                        <div class="item-info">
+                            <span>${this.escapeHtml(g.name)}</span>
+                            <span>${this.formatCurrency(g.amount)} (${percentage.toFixed(1)}%)</span>
+                        </div>
+                        <div class="item-bar-container">
+                            <div class="item-bar" style="width: ${percentage}%"></div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        };
+
+        renderList(incomeGroups, 'incomeBreakdownList', totalIncome, 'income');
+        renderList(expenseGroups, 'expenseBreakdownList', totalExpense, 'expense');
+    }
+
+    renderMonthlyHistory() {
+        const container = document.getElementById('monthlyHistoryList');
+        if (!container) return;
+
+        if (this.transactions.length === 0) {
+            container.innerHTML = '<p class="empty-hint">Henüz işlem geçmişi bulunmuyor</p>';
+            return;
+        }
+
+        // Group by month/year
+        const groups = {};
+        this.transactions.forEach(t => {
+            const date = new Date(t.date);
+            const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+            if (!groups[key]) {
+                groups[key] = {
+                    year: date.getFullYear(),
+                    month: date.getMonth(),
+                    income: 0,
+                    expense: 0
+                };
+            }
+            if (t.type === 'income') groups[key].income += t.amount;
+            else groups[key].expense += t.amount;
+        });
+
+        const sortedKeys = Object.keys(groups).sort((a, b) => b.localeCompare(a));
+        const monthNames = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
+
+        container.innerHTML = sortedKeys.map(key => {
+            const group = groups[key];
+            const net = group.income - group.expense;
+            return `
+                <div class="history-card">
+                    <div class="history-card-header">
+                        <span>${monthNames[group.month]} ${group.year}</span>
+                    </div>
+                    <div class="history-card-body">
+                        <div class="history-stat income">
+                            <span class="label">Gelir:</span>
+                            <span class="value">+${this.formatCurrency(group.income)}</span>
+                        </div>
+                        <div class="history-stat expense">
+                            <span class="label">Gider:</span>
+                            <span class="value">-${this.formatCurrency(group.expense)}</span>
+                        </div>
+                        <div class="history-stat net">
+                            <span class="label">Net:</span>
+                            <span class="value" style="color: ${net >= 0 ? 'var(--income-color)' : 'var(--expense-color)'}">
+                                ${this.formatCurrency(net)}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
     }
 
     renderTransactions() {
         const container = document.getElementById('transactionsList');
+        if (!container) return;
+
         const filtered = this.currentFilter === 'all'
             ? this.transactions
             : this.transactions.filter(t => t.type === this.currentFilter);
@@ -834,6 +976,7 @@ class FinanceTracker {
 
     renderInstallments() {
         const container = document.getElementById('installmentsList');
+        if (!container) return;
 
         if (this.installments.length === 0) {
             container.innerHTML = `
@@ -913,7 +1056,7 @@ class FinanceTracker {
     formatDate(dateString) {
         try {
             const date = new Date(dateString);
-            return new Intl.DateFormat('tr-TR', {
+            return new Intl.DateTimeFormat('tr-TR', {
                 day: 'numeric',
                 month: 'long',
                 year: 'numeric'
@@ -950,6 +1093,7 @@ class FinanceTracker {
     }
 
     escapeHtml(text) {
+        if (!text) return '';
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
@@ -971,4 +1115,13 @@ class FinanceTracker {
 // Initialize app
 document.addEventListener('DOMContentLoaded', () => {
     window.app = new FinanceTracker();
+
+    // Register Service Worker
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('./sw.js')
+                .then(reg => console.log('Service Worker registered:', reg))
+                .catch(err => console.log('Service Worker registration failed:', err));
+        });
+    }
 });

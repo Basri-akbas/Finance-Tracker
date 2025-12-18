@@ -6,6 +6,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Finans Takip - Gelir & Gider Yönetimi</title>
     <meta name="description" content="Gelir, gider ve taksit ödemelerinizi kolayca takip edin">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#667eea">
+    <link rel="apple-touch-icon" href="icon-512.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -120,27 +123,72 @@
                         <h2 class="card-value" id="activeInstallmentAmount">€0.00</h2>
                     </div>
                 </div>
-
             </section>
 
-            <!-- Tabs -->
-            <section class="tabs-section">
+            <!-- Navigation Tabs -->
+            <div class="tabs-section">
                 <div class="tabs">
-                    <button class="tab-btn active" data-tab="transactions">İşlemler</button>
+                    <button class="tab-btn active" data-tab="summary">Özet</button>
+                    <button class="tab-btn" data-tab="transactions">İşlemler</button>
                     <button class="tab-btn" data-tab="installments">Taksitler</button>
-                    <button class="tab-btn" data-tab="recurring">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            style="display:inline-block; vertical-align:middle; margin-right:4px;">
-                            <path
-                                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-                        </svg>
-                        Otomatik İşlemler
-                    </button>
+                    <button class="tab-btn" data-tab="recurring">Otomatik</button>
+                </div>
+
+                <!-- Monthly Summary Tab -->
+                <div class="tab-content active" id="summary-tab">
+                    <div class="content-header">
+                        <h3>Aylık Özet</h3>
+                        <div id="summaryMonthName" style="color: var(--text-secondary); font-weight: 500;"></div>
+                    </div>
+
+                    <div class="summary-grid">
+                        <!-- Net Status Card -->
+                        <div class="summary-breakdown-card net-card">
+                            <div class="breakdown-header">
+                                <span>Aylık Net Durum</span>
+                                <span id="monthlyNetStatus" class="net-value">€0.00</span>
+                            </div>
+                            <p class="breakdown-hint">Gelir ve gider arasındaki fark</p>
+                        </div>
+
+                        <div class="breakdown-columns">
+                            <!-- Income Breakdown -->
+                            <div class="breakdown-column">
+                                <h4 class="column-title income">
+                                    <span>Gelir Dağılımı</span>
+                                    <span id="summaryIncomeTotal" class="header-total"></span>
+                                </h4>
+                                <div id="incomeBreakdownList" class="breakdown-list">
+                                    <p class="empty-hint">Bu ay henüz gelir eklenmemiş</p>
+                                </div>
+                            </div>
+
+                            <!-- Expense Breakdown -->
+                            <div class="breakdown-column">
+                                <h4 class="column-title expense">
+                                    <span>Gider Dağılımı</span>
+                                    <span id="summaryExpenseTotal" class="header-total"></span>
+                                </h4>
+                                <div id="expenseBreakdownList" class="breakdown-list">
+                                    <p class="empty-hint">Bu ay henüz gider eklenmemiş</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Monthly History Section -->
+                        <div class="history-section">
+                            <h4 class="column-title"
+                                style="margin-top: var(--spacing-lg); margin-bottom: var(--spacing-md);">Aylık Geçmiş
+                            </h4>
+                            <div id="monthlyHistoryList" class="history-list">
+                                <!-- Will be populated by JS -->
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Transactions Tab -->
-                <div class="tab-content active" id="transactions-tab">
+                <div class="tab-content" id="transactions-tab">
                     <div class="content-header">
                         <h3>İşlem Geçmişi</h3>
                         <button class="btn-primary" id="addTransactionBtn">
@@ -217,7 +265,7 @@
                         </div>
                     </div>
                 </div>
-            </section>
+            </div>
         </main>
     </div>
 
