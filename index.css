@@ -93,67 +93,6 @@ body {
     flex-direction: column;
 }
 
-/* Auth Section */
-.auth-container {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: var(--bg-primary);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 2000;
-    padding: var(--spacing-lg);
-}
-
-.auth-card {
-    background: var(--bg-secondary);
-    padding: var(--spacing-xl);
-    border-radius: var(--radius-xl);
-    box-shadow: var(--shadow-xl);
-    width: 100%;
-    max-width: 400px;
-    text-align: center;
-    animation: fadeIn var(--transition-base);
-}
-
-.auth-header {
-    margin-bottom: var(--spacing-xl);
-}
-
-.auth-header svg {
-    margin-bottom: var(--spacing-md);
-}
-
-.auth-header h2 {
-    font-size: 1.75rem;
-    font-weight: 700;
-    margin-bottom: 4px;
-}
-
-.auth-header p {
-    color: var(--text-secondary);
-    font-size: 0.95rem;
-}
-
-.auth-footer {
-    margin-top: var(--spacing-lg);
-    font-size: 0.9rem;
-    color: var(--text-secondary);
-}
-
-.auth-footer a {
-    color: var(--accent-primary-solid);
-    text-decoration: none;
-    font-weight: 600;
-}
-
-.w-full {
-    width: 100%;
-}
-
 /* Header */
 .app-header {
     background: var(--bg-secondary);
