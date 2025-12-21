@@ -39,13 +39,18 @@ class FinanceTracker {
 
         this.currentFilter = 'all';
         this.currentTransactionType = 'income';
+        this.currentLandingTransactionType = 'income';
         this.currentPaymentMethod = 'cash';
+        this.currentLandingPaymentMethod = 'cash';
 
         this.init();
     }
 
     async init() {
         this.setupEventListeners();
+        this.loadTheme();
+        this.setDefaultDate();
+        this.setupLandingForm();
 
         try {
             await this.loadAllData();
@@ -59,8 +64,6 @@ class FinanceTracker {
         this.renderInstallments();
         this.renderRecurringTemplates();
         this.checkRecurringTransactions();
-        this.loadTheme();
-        this.setDefaultDate();
         this.renderCustomCategories();
         this.updateCategoryDropdowns();
     }
@@ -170,6 +173,39 @@ class FinanceTracker {
 
     // Event Listeners
     setupEventListeners() {
+        // Landing Page Actions
+        const goToDashboard = document.getElementById('goToDashboard');
+        const mainLogo = document.querySelector('.app-header .logo');
+
+        if (goToDashboard) {
+            goToDashboard.addEventListener('click', () => {
+                this.switchView('dashboard');
+            });
+        }
+
+        if (mainLogo) {
+            mainLogo.style.cursor = 'pointer';
+            mainLogo.addEventListener('click', () => {
+                this.switchView('landing');
+            });
+        }
+
+        // Landing Form Type Selector
+        document.querySelectorAll('.landing-type-selector .type-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const typeBtn = e.target.closest('.type-btn');
+                this.selectLandingTransactionType(typeBtn);
+            });
+        });
+
+        // Landing Form Payment Selector
+        document.querySelectorAll('.landing-payment-selector .payment-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const paymentBtn = e.target.closest('.payment-btn');
+                this.selectLandingPaymentMethod(paymentBtn);
+            });
+        });
+
         // Theme toggle
         document.getElementById('themeToggle').addEventListener('click', () => this.toggleTheme());
 
@@ -232,6 +268,128 @@ class FinanceTracker {
                 }
             });
         });
+    }
+
+    setupLandingForm() {
+        console.log("Setting up landing form...");
+        const landingForm = document.getElementById('landingTransactionForm');
+        if (landingForm) {
+            landingForm.addEventListener('submit', (e) => {
+                console.log("Landing form submitted");
+                this.handleLandingTransactionSubmit(e);
+            });
+            this.setLandingDefaultDate();
+        }
+    }
+
+    setLandingDefaultDate() {
+        const dateInput = document.getElementById('landingTransactionDate');
+        if (dateInput) {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            dateInput.value = `${year}-${month}-${day}`;
+        }
+    }
+
+    selectLandingTransactionType(btn) {
+        if (!btn) return;
+        const type = btn.dataset.type;
+        this.currentLandingTransactionType = type;
+
+        document.querySelectorAll('.landing-type-selector .type-btn').forEach(b => {
+            b.classList.toggle('active', b === btn);
+        });
+
+        const incomeCategories = document.getElementById('landingIncomeCategories');
+        const expenseCategories = document.getElementById('landingExpenseCategories');
+
+        if (type === 'income') {
+            incomeCategories.style.display = '';
+            expenseCategories.style.display = 'none';
+        } else {
+            incomeCategories.style.display = 'none';
+            expenseCategories.style.display = '';
+        }
+        document.getElementById('landingTransactionCategory').value = "";
+    }
+
+    selectLandingPaymentMethod(btn) {
+        if (!btn) return;
+        const payment = btn.dataset.payment;
+        this.currentLandingPaymentMethod = payment;
+
+        document.querySelectorAll('.landing-payment-selector .payment-btn').forEach(b => {
+            b.classList.toggle('active', b === btn);
+        });
+    }
+
+    async handleLandingTransactionSubmit(e) {
+        e.preventDefault();
+        console.log("Handling landing transaction submit...");
+        const form = e.target;
+        const submitBtn = form.querySelector('button[type="submit"]');
+        submitBtn.disabled = true;
+
+        try {
+            const description = document.getElementById('landingTransactionDescription').value;
+            const amountVal = document.getElementById('landingTransactionAmount').value;
+            const date = document.getElementById('landingTransactionDate').value;
+            const category = document.getElementById('landingTransactionCategory').value;
+
+            console.log("Data:", { description, amountVal, date, category, type: this.currentLandingTransactionType });
+
+            if (!description || !amountVal || !date || !category) {
+                alert("Lütfen tüm alanları doldurun.");
+                submitBtn.disabled = false;
+                return;
+            }
+
+            const transactionData = {
+                type: this.currentLandingTransactionType,
+                paymentMethod: this.currentLandingPaymentMethod,
+                description: description,
+                amount: parseFloat(amountVal),
+                date: date,
+                category: category,
+                createdAt: new Date().toISOString()
+            };
+
+            const docRef = await addDoc(collection(db, "transactions"), transactionData);
+            console.log("Document saved with ID:", docRef.id);
+            this.transactions.unshift({ id: docRef.id, ...transactionData });
+
+            this.updateSummary();
+            this.renderTransactions();
+
+            form.reset();
+            this.setLandingDefaultDate();
+
+            // For automated testing, we might want to skip the alert or handle it
+            console.log("SUCCESS: Transaction saved");
+
+            this.switchView('dashboard');
+        } catch (error) {
+            console.error("Error saving landing transaction:", error);
+            alert(`İşlem kaydedilirken bir hata oluştu: ${error.message}`);
+        } finally {
+            submitBtn.disabled = false;
+        }
+    }
+
+    // View Management
+    switchView(view) {
+        const landingPage = document.getElementById('landingPage');
+        const dashboardPage = document.getElementById('dashboardPage');
+
+        if (view === 'landing') {
+            landingPage.style.display = 'flex';
+            dashboardPage.style.display = 'none';
+        } else {
+            landingPage.style.display = 'none';
+            dashboardPage.style.display = 'flex';
+        }
     }
 
     // Category Management
@@ -333,6 +491,32 @@ class FinanceTracker {
             option.setAttribute('data-custom', 'true');
             expenseGroup.appendChild(option);
         });
+        // For Landing Page
+        const landingIncomeSelect = document.getElementById('landingIncomeCategories');
+        const landingExpenseSelect = document.getElementById('landingExpenseCategories');
+
+        if (landingIncomeSelect) {
+            landingIncomeSelect.innerHTML = `
+                <option value="salary">Maaş</option>
+                <option value="freelance">Serbest Çalışma</option>
+                <option value="investment">Yatırım</option>
+                <option value="other-income">Diğer</option>
+                ${this.customCategories.income.map(cat => `<option value="${this.escapeHtml(cat.id)}">${this.escapeHtml(cat.name)}</option>`).join('')}
+            `;
+        }
+
+        if (landingExpenseSelect) {
+            landingExpenseSelect.innerHTML = `
+                <option value="food">Yiyecek & İçecek</option>
+                <option value="transport">Ulaşım</option>
+                <option value="bills">Faturalar</option>
+                <option value="shopping">Alışveriş</option>
+                <option value="health">Sağlık</option>
+                <option value="entertainment">Eğlence</option>
+                <option value="other-expense">Diğer</option>
+                ${this.customCategories.expense.map(cat => `<option value="${this.escapeHtml(cat.id)}">${this.escapeHtml(cat.name)}</option>`).join('')}
+            `;
+        }
     }
 
     // Tabs
@@ -1113,6 +1297,13 @@ class FinanceTracker {
 
 // Initialize app
 document.addEventListener('DOMContentLoaded', () => {
+    window.addEventListener('error', (event) => {
+        console.error('GLOBAL ERROR:', event.error);
+    });
+    window.addEventListener('unhandledrejection', (event) => {
+        console.error('UNHANDLED REJECTION:', event.reason);
+    });
+
     window.app = new FinanceTracker();
 
     // Register Service Worker
