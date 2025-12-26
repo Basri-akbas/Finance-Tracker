@@ -2,7 +2,7 @@
   "name": "Finans Takip",
   "short_name": "Finans",
   "description": "Gelir ve giderlerinizi takip edin.",
-  "start_url": "/index.html",
+  "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#f8f9fa",
   "theme_color": "#667eea",

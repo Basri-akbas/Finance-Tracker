@@ -140,25 +140,57 @@ class FinanceTracker {
     // Balance Editing
     editBalance(type) {
         this.currentEditingBalanceType = type;
-        const currentBalance = this.initialBalances[type] || 0;
+
+        // Calculate current total balance for pre-filling the input
+        let currentTotalBalance = this.initialBalances[type] || 0;
+
+        this.transactions.forEach(t => {
+            const isIncome = t.type === 'income';
+            if (type === 'cash' && t.paymentMethod === 'cash') {
+                currentTotalBalance += isIncome ? t.amount : -t.amount;
+            } else if (type === 'bank' && t.paymentMethod !== 'cash') {
+                currentTotalBalance += isIncome ? t.amount : -t.amount;
+            }
+        });
+
         const label = type === 'cash' ? 'Nakit Bakiye' : 'Banka Bakiye';
 
         document.getElementById('balanceModalTitle').textContent = `${label} Düzenle`;
-        document.getElementById('newBalanceValue').value = currentBalance;
+        document.getElementById('newBalanceValue').value = currentTotalBalance;
         document.getElementById('balanceModal').classList.add('active');
     }
 
     async handleBalanceSubmit(e) {
         e.preventDefault();
         const type = this.currentEditingBalanceType;
-        const newValue = parseFloat(document.getElementById('newBalanceValue').value);
+        const targetBalance = parseFloat(document.getElementById('newBalanceValue').value);
 
-        if (!isNaN(newValue)) {
+        if (!isNaN(targetBalance)) {
             try {
-                const newBalances = { ...this.initialBalances, [type]: newValue };
+                // Calculate total transaction impact for this type
+                let transactionsTotal = 0;
+                this.transactions.forEach(t => {
+                    const isIncome = t.type === 'income';
+
+                    if (type === 'cash' && t.paymentMethod === 'cash') {
+                        transactionsTotal += isIncome ? t.amount : -t.amount;
+                    } else if (type === 'bank' && t.paymentMethod !== 'cash') { // explicit check for bank/other
+                        transactionsTotal += isIncome ? t.amount : -t.amount;
+                    }
+                });
+
+                // Algorithm: Target = Initial + TransactionsTotal
+                // Therefore: Initial = Target - TransactionsTotal
+                const newInitialBalance = targetBalance - transactionsTotal;
+
+                console.log(`Adjusting ${type} balance: Target=${targetBalance}, TransTotal=${transactionsTotal}, NewInitial=${newInitialBalance}`);
+
+                const newBalances = { ...this.initialBalances, [type]: newInitialBalance };
                 await this.saveInitialBalances(newBalances);
+
                 this.updateSummary();
                 this.closeBalanceModal();
+                alert("Bakiye güncellendi.");
             } catch (error) {
                 console.error("Error saving balance:", error);
                 alert("Bakiye kaydedilirken bir hata oluştu.");
