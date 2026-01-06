@@ -38,6 +38,7 @@ class FinanceTracker {
         this.recurringTemplates = [];
 
         this.currentFilter = 'all';
+        this.currentCategoryFilter = 'all';
         this.currentTransactionType = 'income';
         this.currentLandingTransactionType = 'income';
         this.currentPaymentMethod = 'cash';
@@ -66,6 +67,7 @@ class FinanceTracker {
         this.checkRecurringTransactions();
         this.renderCustomCategories();
         this.updateCategoryDropdowns();
+        this.updateFilterCategoryDropdown();
     }
 
 
@@ -289,6 +291,13 @@ class FinanceTracker {
         // Filter
         document.getElementById('filterType').addEventListener('change', (e) => {
             this.currentFilter = e.target.value;
+            this.currentCategoryFilter = 'all'; // Reset category filter when type changes
+            this.updateFilterCategoryDropdown();
+            this.renderTransactions();
+        });
+
+        document.getElementById('filterCategory').addEventListener('change', (e) => {
+            this.currentCategoryFilter = e.target.value;
             this.renderTransactions();
         });
 
@@ -523,6 +532,9 @@ class FinanceTracker {
             option.setAttribute('data-custom', 'true');
             expenseGroup.appendChild(option);
         });
+
+        this.updateFilterCategoryDropdown();
+
         // For Landing Page
         const landingIncomeSelect = document.getElementById('landingIncomeCategories');
         const landingExpenseSelect = document.getElementById('landingExpenseCategories');
@@ -549,6 +561,54 @@ class FinanceTracker {
                 ${this.customCategories.expense.map(cat => `<option value="${this.escapeHtml(cat.id)}">${this.escapeHtml(cat.name)}</option>`).join('')}
             `;
         }
+    }
+
+    updateFilterCategoryDropdown() {
+        const categoryFilter = document.getElementById('filterCategory');
+        if (!categoryFilter) return;
+
+        const type = this.currentFilter;
+        let options = '<option value="all">Tüm Kategoriler</option>';
+
+        const addOptions = (categories, prefix = '') => {
+            Object.entries(categories).forEach(([id, name]) => {
+                options += `<option value="${id}">${prefix}${name}</option>`;
+            });
+        };
+
+        const defaultIncome = {
+            'salary': 'Maaş',
+            'freelance': 'Serbest Çalışma',
+            'investment': 'Yatırım',
+            'other-income': 'Diğer'
+        };
+
+        const defaultExpense = {
+            'food': 'Yiyecek & İçecek',
+            'transport': 'Ulaşım',
+            'bills': 'Faturalar',
+            'shopping': 'Alışveriş',
+            'health': 'Sağlık',
+            'entertainment': 'Eğlence',
+            'other-expense': 'Diğer'
+        };
+
+        if (type === 'all' || type === 'income') {
+            addOptions(defaultIncome, type === 'all' ? 'Gelir: ' : '');
+            this.customCategories.income.forEach(cat => {
+                options += `<option value="${cat.id}">${type === 'all' ? 'Gelir: ' : ''}${cat.name}</option>`;
+            });
+        }
+
+        if (type === 'all' || type === 'expense') {
+            addOptions(defaultExpense, type === 'all' ? 'Gider: ' : '');
+            this.customCategories.expense.forEach(cat => {
+                options += `<option value="${cat.id}">${type === 'all' ? 'Gider: ' : ''}${cat.name}</option>`;
+            });
+        }
+
+        categoryFilter.innerHTML = options;
+        categoryFilter.value = this.currentCategoryFilter;
     }
 
     // Tabs
@@ -1136,9 +1196,11 @@ class FinanceTracker {
         const container = document.getElementById('transactionsList');
         if (!container) return;
 
-        const filtered = this.currentFilter === 'all'
-            ? this.transactions
-            : this.transactions.filter(t => t.type === this.currentFilter);
+        const filtered = this.transactions.filter(t => {
+            const typeMatch = this.currentFilter === 'all' || t.type === this.currentFilter;
+            const categoryMatch = this.currentCategoryFilter === 'all' || t.category === this.currentCategoryFilter;
+            return typeMatch && categoryMatch;
+        });
 
         if (filtered.length === 0) {
             container.innerHTML = `

@@ -307,11 +307,14 @@
                         </button>
                     </div>
 
-                    <div class="filter-section">
+                    <div class="filter-section" style="display: flex; gap: var(--spacing-sm);">
                         <select id="filterType" class="filter-select">
-                            <option value="all">Tümü</option>
-                            <option value="income">Gelir</option>
-                            <option value="expense">Gider</option>
+                            <option value="all">Tümü (Gelir & Gider)</option>
+                            <option value="income">Sadece Gelirler</option>
+                            <option value="expense">Sadece Giderler</option>
+                        </select>
+                        <select id="filterCategory" class="filter-select">
+                            <option value="all">Tüm Kategoriler</option>
                         </select>
                     </div>
 
