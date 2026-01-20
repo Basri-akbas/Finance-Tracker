@@ -56,6 +56,7 @@ class FinanceTracker {
         try {
             await this.loadAllData();
             await this.checkAndProcessRecurringPayments();
+            await this.checkInstallments();
         } catch (error) {
             console.error("Error loading data:", error);
             alert("Veriler yüklenirken bir hata oluştu. Lütfen internet bağlantınızı kontrol edin.");
@@ -65,8 +66,6 @@ class FinanceTracker {
         this.renderTransactions();
         this.renderInstallments();
         this.renderRecurringTemplates();
-        this.checkRecurringTransactions();
-        this.checkInstallments();
         this.renderCustomCategories();
         this.updateCategoryDropdowns();
         this.updateFilterCategoryDropdown();
@@ -121,18 +120,18 @@ class FinanceTracker {
         // console.log("Checking recurring payments...");
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        
+
         const templates = [...this.recurringTemplates];
         let processedCount = 0;
 
         for (const template of templates) {
             const nextDate = new Date(template.nextDate);
             nextDate.setHours(0, 0, 0, 0);
-            
+
             // If nextDate is today or in the past
             if (nextDate <= today) {
                 console.log(`Processing recurring payment: ${template.description}, Due: ${template.nextDate}`);
-                
+
                 // Create new transaction
                 const transactionData = {
                     type: template.type,
@@ -144,34 +143,34 @@ class FinanceTracker {
                     createdAt: new Date().toISOString(),
                     isRecurring: true
                 };
-                
+
                 try {
                     // Save transaction
                     const docRef = await addDoc(collection(db, "transactions"), transactionData);
                     this.transactions.unshift({ id: docRef.id, ...transactionData });
-                    
+
                     // Update template next date (add 1 month)
                     const newNextDate = new Date(template.nextDate);
                     newNextDate.setMonth(newNextDate.getMonth() + 1);
                     const newNextDateStr = newNextDate.toISOString().split('T')[0];
-                    
+
                     await updateDoc(doc(db, "recurringTemplates", template.id), {
                         nextDate: newNextDateStr
                     });
-                    
+
                     // Update local state
                     const templateIndex = this.recurringTemplates.findIndex(t => t.id === template.id);
                     if (templateIndex !== -1) {
                         this.recurringTemplates[templateIndex].nextDate = newNextDateStr;
                     }
-                    
+
                     processedCount++;
                 } catch (error) {
                     console.error(`Error processing recurring payment ${template.id}:`, error);
                 }
             }
         }
-        
+
         if (processedCount > 0) {
             this.renderRecurringTemplates();
             this.renderTransactions();
@@ -332,16 +331,7 @@ class FinanceTracker {
             });
         });
 
-        // Installment Payment Method
-        const instPaymentBtns = document.querySelectorAll('#installmentPaymentMethod .type-btn');
-        instPaymentBtns.forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                instPaymentBtns.forEach(b => b.classList.remove('active'));
-                e.target.classList.add('active');
-                this.currentInstallmentPaymentMethod = e.target.dataset.value;
-                document.getElementById('selectedInstallmentPaymentMethod').value = e.target.dataset.value;
-            });
-        });
+
 
         // Tabs
         document.querySelectorAll('.tab-btn').forEach(btn => {
