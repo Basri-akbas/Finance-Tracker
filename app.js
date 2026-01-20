@@ -55,6 +55,7 @@ class FinanceTracker {
 
         try {
             await this.loadAllData();
+            await this.checkAndProcessRecurringPayments();
         } catch (error) {
             console.error("Error loading data:", error);
             alert("Veriler yüklenirken bir hata oluştu. Lütfen internet bağlantınızı kontrol edin.");
@@ -114,6 +115,69 @@ class FinanceTracker {
         recSnap.forEach(doc => {
             this.recurringTemplates.push({ id: doc.id, ...doc.data() });
         });
+    }
+
+    async checkAndProcessRecurringPayments() {
+        // console.log("Checking recurring payments...");
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        const templates = [...this.recurringTemplates];
+        let processedCount = 0;
+
+        for (const template of templates) {
+            const nextDate = new Date(template.nextDate);
+            nextDate.setHours(0, 0, 0, 0);
+            
+            // If nextDate is today or in the past
+            if (nextDate <= today) {
+                console.log(`Processing recurring payment: ${template.description}, Due: ${template.nextDate}`);
+                
+                // Create new transaction
+                const transactionData = {
+                    type: template.type,
+                    paymentMethod: template.paymentMethod,
+                    description: template.description + " (Otomatik)",
+                    amount: template.amount,
+                    date: template.nextDate, // Use the scheduled date
+                    category: template.category,
+                    createdAt: new Date().toISOString(),
+                    isRecurring: true
+                };
+                
+                try {
+                    // Save transaction
+                    const docRef = await addDoc(collection(db, "transactions"), transactionData);
+                    this.transactions.unshift({ id: docRef.id, ...transactionData });
+                    
+                    // Update template next date (add 1 month)
+                    const newNextDate = new Date(template.nextDate);
+                    newNextDate.setMonth(newNextDate.getMonth() + 1);
+                    const newNextDateStr = newNextDate.toISOString().split('T')[0];
+                    
+                    await updateDoc(doc(db, "recurringTemplates", template.id), {
+                        nextDate: newNextDateStr
+                    });
+                    
+                    // Update local state
+                    const templateIndex = this.recurringTemplates.findIndex(t => t.id === template.id);
+                    if (templateIndex !== -1) {
+                        this.recurringTemplates[templateIndex].nextDate = newNextDateStr;
+                    }
+                    
+                    processedCount++;
+                } catch (error) {
+                    console.error(`Error processing recurring payment ${template.id}:`, error);
+                }
+            }
+        }
+        
+        if (processedCount > 0) {
+            this.renderRecurringTemplates();
+            this.renderTransactions();
+            this.updateSummary();
+            alert(`${processedCount} adet otomatik işlem eklendi.`);
+        }
     }
 
     // Settings (Balances & Categories)
