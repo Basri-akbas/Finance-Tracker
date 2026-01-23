@@ -1593,5 +1593,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 .then(reg => console.log('Service Worker registered:', reg))
                 .catch(err => console.log('Service Worker registration failed:', err));
         });
+
+        // Handle automatic update when new service worker takes control
+        let refreshing = false;
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+            if (!refreshing) {
+                refreshing = true;
+                window.location.reload();
+            }
+        });
     }
 });
