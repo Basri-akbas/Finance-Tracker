@@ -686,6 +686,9 @@ class FinanceTracker {
 
         categoryFilter.innerHTML = options;
         categoryFilter.value = this.currentCategoryFilter;
+
+        // Add a class for styling if you like
+        categoryFilter.classList.toggle('has-selection', this.currentCategoryFilter !== 'all');
     }
 
     // Tabs
@@ -1417,7 +1420,7 @@ class FinanceTracker {
                     <div class="transaction-meta">
                         <span>${this.formatDate(transaction.date)}</span>
                         <span>•</span>
-                        <span>${this.getCategoryName(transaction.category)}</span>
+                        <span class="transaction-category-tag">${this.escapeHtml(this.getCategoryName(transaction.category))}</span>
                         <span>•</span>
                         <span>${transaction.paymentMethod === 'cash' ? 'Nakit' : 'Banka'}</span>
                     </div>
