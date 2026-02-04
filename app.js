@@ -9,9 +9,17 @@ import {
     doc,
     updateDoc,
     setDoc,
+    getDoc,
     query,
     orderBy
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import {
+    getAuth,
+    signInWithEmailAndPassword,
+    createUserWithEmailAndPassword,
+    onAuthStateChanged,
+    signOut
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
 function logAppError(msg, err) {
     console.error(msg, err);
@@ -36,6 +44,7 @@ const firebaseConfig = {
 // Initialize Firebase
 const firebaseApp = initializeApp(firebaseConfig);
 const db = getFirestore(firebaseApp);
+const auth = getAuth(firebaseApp);
 
 // Data Management
 class FinanceTracker {
@@ -55,19 +64,20 @@ class FinanceTracker {
         this.currentPaymentMethod = 'cash';
         this.currentLandingPaymentMethod = 'cash';
 
-        this.init();
+        this.user = null;
+        this.authMode = 'login'; // 'login' or 'register'
+
+        this.setupAuth();
     }
 
     async init() {
-        console.log("FinanceTracker init starting...");
+        if (!this.user) return;
+        console.log("FinanceTracker initializing for user:", this.user.uid);
+
         this.setupEventListeners();
-        console.log("EventListeners setup complete");
         this.loadTheme();
-        console.log("Theme loaded");
         this.setDefaultDate();
-        console.log("Default date set");
         this.setupLandingForm();
-        console.log("Landing form setup complete");
 
         try {
             await this.loadAllData();
@@ -101,38 +111,72 @@ class FinanceTracker {
                 this.customCategories = doc.data();
             }
         });
+        try {
+            // Load user profile (balances and categories)
+            const userSnap = await getDoc(this.getUserDoc());
+            if (userSnap.exists()) {
+                const userData = userSnap.data();
+                this.initialBalances = userData.initialBalances || {
+                    cash: 0,
+                    bank: 0
+                };
+                this.customCategories = userData.customCategories || {
+                    income: [],
+                    expense: []
+                };
+            } else {
+                // Initialize settings if they don't exist
+                await this.saveInitialBalances({
+                    cash: 0,
+                    bank: 0
+                });
+                await this.saveCustomCategories({
+                    income: [],
+                    expense: []
+                });
+            }
 
-        // Initialize settings if they don't exist
-        if (settingsSnap.empty || !this.initialBalances) {
-            await this.saveInitialBalances({ cash: 0, bank: 0 });
+            // Load transactions
+            const q = query(this.getTransactionsRef(), orderBy("date", "desc"));
+            const querySnapshot = await getDocs(q);
+            this.transactions = [];
+            querySnapshot.forEach((doc) => {
+                this.transactions.push({
+                    id: doc.id,
+                    ...doc.data()
+                });
+            });
+
+            // Load installments
+            const instSnapshot = await getDocs(this.getInstallmentsRef());
+            this.installments = [];
+            instSnapshot.forEach((doc) => {
+                this.installments.push({
+                    id: doc.id,
+                    ...doc.data()
+                });
+            });
+
+            // Load recurring templates
+            const recSnapshot = await getDocs(this.getRecurringRef());
+            this.recurringTemplates = [];
+            recSnapshot.forEach((doc) => {
+                this.recurringTemplates.push({
+                    id: doc.id,
+                    ...doc.data()
+                });
+            });
+
+            this.renderTransactions();
+            this.renderInstallments();
+            this.renderRecurringTemplates(); // Corrected from renderRecurringList
+            this.renderMonthlyHistory();
+            this.updateSummary();
+            this.updateCategoryDropdowns();
+            this.updateFilterCategoryDropdown();
+        } catch (error) {
+            logAppError("Yükleme Hatası:", error);
         }
-        if (!this.customCategories.income) {
-            await this.saveCustomCategories({ income: [], expense: [] });
-        }
-
-        // Load Transactions
-        const qTransactions = query(collection(db, "transactions"), orderBy("date", "desc"));
-        const transSnap = await getDocs(qTransactions);
-        this.transactions = [];
-        transSnap.forEach(doc => {
-            this.transactions.push({ id: doc.id, ...doc.data() });
-        });
-
-        // Load Installments
-        const qInstallments = query(collection(db, "installments"), orderBy("createdAt", "desc"));
-        const instSnap = await getDocs(qInstallments);
-        this.installments = [];
-        instSnap.forEach(doc => {
-            this.installments.push({ id: doc.id, ...doc.data() });
-        });
-
-        // Load Recurring Templates
-        const qRecurring = query(collection(db, "recurringTemplates"), orderBy("createdAt", "desc"));
-        const recSnap = await getDocs(qRecurring);
-        this.recurringTemplates = [];
-        recSnap.forEach(doc => {
-            this.recurringTemplates.push({ id: doc.id, ...doc.data() });
-        });
     }
 
     async checkAndProcessRecurringPayments() {
@@ -165,15 +209,18 @@ class FinanceTracker {
 
                 try {
                     // Save transaction
-                    const docRef = await addDoc(collection(db, "transactions"), transactionData);
-                    this.transactions.unshift({ id: docRef.id, ...transactionData });
+                    const docRef = await addDoc(this.getTransactionsRef(), transactionData);
+                    this.transactions.unshift({
+                        id: docRef.id,
+                        ...transactionData
+                    });
 
                     // Update template next date (add 1 month)
                     const newNextDate = new Date(template.nextDate);
                     newNextDate.setMonth(newNextDate.getMonth() + 1);
                     const newNextDateStr = newNextDate.toISOString().split('T')[0];
 
-                    await updateDoc(doc(db, "recurringTemplates", template.id), {
+                    await updateDoc(this.getRecurringDoc(template.id), {
                         nextDate: newNextDateStr
                     });
 
@@ -200,13 +247,29 @@ class FinanceTracker {
 
     // Settings (Balances & Categories)
     async saveInitialBalances(data) {
-        this.initialBalances = data;
-        await setDoc(doc(db, "settings", "initialBalances"), data);
+        try {
+            this.initialBalances = data;
+            await setDoc(this.getUserDoc(), {
+                initialBalances: data
+            }, {
+                merge: true
+            });
+        } catch (error) {
+            logAppError("Bakiye kaydedilemedi", error);
+        }
     }
 
     async saveCustomCategories(data) {
-        this.customCategories = data;
-        await setDoc(doc(db, "settings", "customCategories"), data);
+        try {
+            this.customCategories = data;
+            await setDoc(this.getUserDoc(), {
+                customCategories: data
+            }, {
+                merge: true
+            });
+        } catch (error) {
+            logAppError("Kategoriler kaydedilemedi", error);
+        }
     }
 
     // Theme
@@ -270,7 +333,10 @@ class FinanceTracker {
 
                 console.log(`Adjusting ${type} balance: Target=${targetBalance}, TransTotal=${transactionsTotal}, NewInitial=${newInitialBalance}`);
 
-                const newBalances = { ...this.initialBalances, [type]: newInitialBalance };
+                const newBalances = {
+                    ...this.initialBalances,
+                    [type]: newInitialBalance
+                };
                 await this.saveInitialBalances(newBalances);
 
                 this.updateSummary();
@@ -440,8 +506,7 @@ class FinanceTracker {
                 else if (action === 'edit') {
                     const debt = this.debts.find(d => d.id === debtId);
                     if (debt) this.openDebtModal(debt);
-                }
-                else if (action === 'delete') this.deleteDebt(debtId);
+                } else if (action === 'delete') this.deleteDebt(debtId);
             });
         }
 
@@ -525,7 +590,6 @@ class FinanceTracker {
 
     async handleLandingTransactionSubmit(e) {
         e.preventDefault();
-        console.log("Handling landing transaction submit...");
         const form = e.target;
         const submitBtn = form.querySelector('button[type="submit"]');
         submitBtn.disabled = true;
@@ -536,7 +600,13 @@ class FinanceTracker {
             const date = document.getElementById('landingTransactionDate').value;
             const category = document.getElementById('landingTransactionCategory').value;
 
-            console.log("Data:", { description, amountVal, date, category, type: this.currentLandingTransactionType });
+            console.log("Data:", {
+                description,
+                amountVal,
+                date,
+                category,
+                type: this.currentLandingTransactionType
+            });
 
             if (!description || !amountVal || !date || !category) {
                 alert("Lütfen tüm alanları doldurun.");
@@ -554,9 +624,12 @@ class FinanceTracker {
                 createdAt: new Date().toISOString()
             };
 
-            const docRef = await addDoc(collection(db, "transactions"), transactionData);
+            const docRef = await addDoc(this.getTransactionsRef(), transactionData);
             console.log("Document saved with ID:", docRef.id);
-            this.transactions.unshift({ id: docRef.id, ...transactionData });
+            this.transactions.unshift({
+                id: docRef.id,
+                ...transactionData
+            });
 
             this.updateSummary();
             this.renderTransactions();
@@ -608,7 +681,9 @@ class FinanceTracker {
         if (!categoryName) return;
 
         const categoryId = `custom_${type}_${Date.now()}`;
-        const newCategories = { ...this.customCategories };
+        const newCategories = {
+            ...this.customCategories
+        };
         newCategories[type].push({
             id: categoryId,
             name: categoryName
@@ -622,7 +697,9 @@ class FinanceTracker {
 
     async deleteCustomCategory(type, categoryId) {
         if (confirm('Bu kategoriyi silmek istediğinizden emin misiniz?')) {
-            const newCategories = { ...this.customCategories };
+            const newCategories = {
+                ...this.customCategories
+            };
             newCategories[type] = newCategories[type].filter(cat => cat.id !== categoryId);
             await this.saveCustomCategories(newCategories);
             this.renderCustomCategories();
@@ -899,15 +976,21 @@ class FinanceTracker {
             };
 
             if (form.dataset.editId) {
-                const ref = doc(db, "transactions", form.dataset.editId);
+                const ref = this.getTransactionDoc(form.dataset.editId);
                 await updateDoc(ref, transactionData);
                 const index = this.transactions.findIndex(t => t.id === form.dataset.editId);
                 if (index !== -1) {
-                    this.transactions[index] = { id: form.dataset.editId, ...transactionData };
+                    this.transactions[index] = {
+                        id: form.dataset.editId,
+                        ...transactionData
+                    };
                 }
             } else {
-                const docRef = await addDoc(collection(db, "transactions"), transactionData);
-                this.transactions.unshift({ id: docRef.id, ...transactionData });
+                const docRef = await addDoc(this.getTransactionsRef(), transactionData);
+                this.transactions.unshift({
+                    id: docRef.id,
+                    ...transactionData
+                });
 
                 // Handle Recurring
                 const isRecurring = document.getElementById('transactionRecurring').checked;
@@ -922,8 +1005,11 @@ class FinanceTracker {
                     };
                     delete templateData.date; // Template uses nextDate
 
-                    const recRef = await addDoc(collection(db, "recurringTemplates"), templateData);
-                    this.recurringTemplates.unshift({ id: recRef.id, ...templateData });
+                    const recRef = await addDoc(this.getRecurringRef(), templateData);
+                    this.recurringTemplates.unshift({
+                        id: recRef.id,
+                        ...templateData
+                    });
                     this.renderRecurringTemplates();
                 }
             }
@@ -942,7 +1028,7 @@ class FinanceTracker {
     async deleteTransaction(id) {
         if (confirm('Bu işlemi silmek istediğinizden emin misiniz?')) {
             try {
-                await deleteDoc(doc(db, "transactions", id));
+                await deleteDoc(this.getTransactionDoc(id));
                 this.transactions = this.transactions.filter(t => t.id !== id);
                 this.updateSummary();
                 this.renderTransactions();
@@ -1002,8 +1088,11 @@ class FinanceTracker {
                 createdAt: new Date().toISOString()
             };
 
-            const docRef = await addDoc(collection(db, "installments"), installmentData);
-            this.installments.unshift({ id: docRef.id, ...installmentData });
+            const docRef = await addDoc(this.getInstallmentsRef(), installmentData);
+            this.installments.unshift({
+                id: docRef.id,
+                ...installmentData
+            });
 
             this.updateSummary();
             this.renderInstallments();
@@ -1019,7 +1108,7 @@ class FinanceTracker {
     async deleteInstallment(id) {
         if (confirm('Bu taksiti silmek istediğinizden emin misiniz?')) {
             try {
-                await deleteDoc(doc(db, "installments", id));
+                await deleteDoc(this.getInstallmentDoc(id));
                 this.installments = this.installments.filter(i => i.id !== id);
                 this.updateSummary();
                 this.renderInstallments();
@@ -1050,10 +1139,13 @@ class FinanceTracker {
                     installmentId: id
                 };
 
-                const transRef = await addDoc(collection(db, "transactions"), transactionData);
-                this.transactions.unshift({ id: transRef.id, ...transactionData });
+                const transRef = await addDoc(this.getTransactionsRef(), transactionData);
+                this.transactions.unshift({
+                    id: transRef.id,
+                    ...transactionData
+                });
 
-                await updateDoc(doc(db, "installments", id), {
+                await updateDoc(this.getInstallmentDoc(id), {
                     paidCount: newPaidCount
                 });
 
@@ -1081,7 +1173,7 @@ class FinanceTracker {
             const start = new Date(installment.startDate);
 
             // Calculate how many installments should have been paid by now
-            // Logic: For each month that has passed since startDate (inclusive of the month of the date), 
+            // Logic: For each month that has passed since startDate (inclusive of the month of the date),
             // if today's date >= start date's day, it counts as a month passed.
             // Better logic: Compare current year/month with start year/month + paidCount
 
@@ -1120,10 +1212,13 @@ class FinanceTracker {
                                 installmentId: installment.id
                             };
 
-                            const transRef = await addDoc(collection(db, "transactions"), transactionData);
-                            this.transactions.unshift({ id: transRef.id, ...transactionData });
+                            const transRef = await addDoc(this.getTransactionsRef(), transactionData);
+                            this.transactions.unshift({
+                                id: transRef.id,
+                                ...transactionData
+                            });
 
-                            await updateDoc(doc(db, "installments", installment.id), {
+                            await updateDoc(this.getInstallmentDoc(installment.id), {
                                 paidCount: newPaidCount
                             });
 
@@ -1177,8 +1272,11 @@ class FinanceTracker {
                         isAutoGenerated: true
                     };
 
-                    const docRef = await addDoc(collection(db, "transactions"), transactionData);
-                    this.transactions.unshift({ id: docRef.id, ...transactionData });
+                    const docRef = await addDoc(this.getTransactionsRef(), transactionData);
+                    this.transactions.unshift({
+                        id: docRef.id,
+                        ...transactionData
+                    });
 
                     // Update nextDate
                     const d = new Date(nextDate);
@@ -1193,7 +1291,7 @@ class FinanceTracker {
 
             if (nextDate !== template.nextDate) {
                 try {
-                    await updateDoc(doc(db, "recurringTemplates", template.id), {
+                    await updateDoc(this.getRecurringDoc(template.id), {
                         nextDate: nextDate
                     });
                     template.nextDate = nextDate;
@@ -1260,7 +1358,7 @@ class FinanceTracker {
     async deleteRecurringTemplate(id) {
         if (confirm('Bu otomatik işlemi iptal etmek istediğinizden emin misiniz? Gelecekteki işlemler artık otomatik eklenmeyecek.')) {
             try {
-                await deleteDoc(doc(db, "recurringTemplates", id));
+                await deleteDoc(this.getRecurringDoc(id));
                 this.recurringTemplates = this.recurringTemplates.filter(t => t.id !== id);
                 this.renderRecurringTemplates();
             } catch (error) {
@@ -1364,7 +1462,11 @@ class FinanceTracker {
                 groups[catId] = (groups[catId] || 0) + t.amount;
             });
             return Object.entries(groups)
-                .map(([id, amount]) => ({ id, amount, name: this.getCategoryName(id) }))
+                .map(([id, amount]) => ({
+                    id,
+                    amount,
+                    name: this.getCategoryName(id)
+                }))
                 .sort((a, b) => b.amount - a.amount);
         };
 
@@ -1485,7 +1587,11 @@ class FinanceTracker {
                     groups[catId] = (groups[catId] || 0) + t.amount;
                 });
                 return Object.entries(groups)
-                    .map(([id, amount]) => ({ id, amount, name: this.getCategoryName(id) }))
+                    .map(([id, amount]) => ({
+                        id,
+                        amount,
+                        name: this.getCategoryName(id)
+                    }))
                     .sort((a, b) => b.amount - a.amount);
             };
 
@@ -1530,10 +1636,13 @@ class FinanceTracker {
     // Debt Management
     async loadDebts() {
         try {
-            const querySnapshot = await getDocs(query(collection(db, "debts"), orderBy("createdAt", "desc")));
+            const querySnapshot = await getDocs(query(this.getDebtsRef(), orderBy("createdAt", "desc")));
             this.debts = [];
             querySnapshot.forEach((doc) => {
-                this.debts.push({ id: doc.id, ...doc.data() });
+                this.debts.push({
+                    id: doc.id,
+                    ...doc.data()
+                });
             });
             this.renderDebts();
         } catch (err) {
@@ -1588,9 +1697,9 @@ class FinanceTracker {
 
         try {
             if (id) {
-                await updateDoc(doc(db, "debts", id), debtData);
+                await updateDoc(this.getDebtDoc(id), debtData);
             } else {
-                await addDoc(collection(db, "debts"), debtData);
+                await addDoc(this.getDebtsRef(), debtData);
             }
             this.closeDebtModal();
             await this.loadDebts();
@@ -1602,7 +1711,7 @@ class FinanceTracker {
     async deleteDebt(id) {
         if (!confirm('Bu kaydı silmek istediğinize emin misiniz?')) return;
         try {
-            await deleteDoc(doc(db, "debts", id));
+            await deleteDoc(this.getDebtDoc(id));
             await this.loadDebts();
         } catch (err) {
             logAppError("Borç silinemedi", err);
@@ -1872,6 +1981,100 @@ class FinanceTracker {
         const dateInput = document.getElementById('installmentStart');
         if (dateInput) dateInput.value = today;
     }
+
+    // AUTH LOGIC
+    setupAuth() {
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                this.user = user;
+                const authPage = document.getElementById('authPage');
+                if (authPage) authPage.style.display = 'none';
+
+                // Show landing or dashboard based on state
+                this.init();
+            } else {
+                this.user = null;
+                const authPage = document.getElementById('authPage');
+                if (authPage) authPage.style.display = 'flex';
+                document.getElementById('landingPage').style.display = 'none';
+                document.getElementById('dashboardPage').style.display = 'none';
+            }
+        });
+
+        const authForm = document.getElementById('authForm');
+        if (authForm) {
+            authForm.addEventListener('submit', (e) => this.handleAuthSubmit(e));
+        }
+
+        const toggleAuth = document.getElementById('toggleAuth');
+        if (toggleAuth) {
+            toggleAuth.addEventListener('click', (e) => {
+                e.preventDefault();
+                this.authMode = this.authMode === 'login' ? 'register' : 'login';
+                document.getElementById('authSubtitle').textContent = this.authMode === 'login' ? 'Giriş Yap' : 'Kayıt Ol';
+                document.getElementById('authSubmitBtn').textContent = this.authMode === 'login' ? 'Giriş Yap' : 'Kayıt Ol';
+                toggleAuth.textContent = this.authMode === 'login' ? 'Kayıt Ol' : 'Giriş Yap';
+                const p = document.querySelector('.auth-toggle');
+                if (p) p.innerHTML = this.authMode === 'login' ? 'Hesabınız yok mu? <a href="#" id="toggleAuth">Kayıt Ol</a>' : 'Zaten hesabınız var mı? <a href="#" id="toggleAuth">Giriş Yap</a>';
+                // Re-add listener because we changed innerHTML
+                this.setupAuth();
+            });
+        }
+    }
+
+    async handleAuthSubmit(e) {
+        e.preventDefault();
+        const email = document.getElementById('authEmail').value;
+        const password = document.getElementById('authPassword').value;
+        const btn = document.getElementById('authSubmitBtn');
+
+        btn.disabled = true;
+        btn.textContent = 'Bekleyin...';
+
+        try {
+            if (this.authMode === 'login') {
+                await signInWithEmailAndPassword(auth, email, password);
+            } else {
+                await createUserWithEmailAndPassword(auth, email, password);
+            }
+        } catch (err) {
+            console.error("Auth error:", err);
+            alert("Hata: " + this.translateAuthError(err.code));
+            btn.disabled = false;
+            btn.textContent = this.authMode === 'login' ? 'Giriş Yap' : 'Kayıt Ol';
+        }
+    }
+
+    async handleLogout() {
+        try {
+            await signOut(auth);
+            window.location.reload();
+        } catch (err) {
+            logAppError("Çıkış yapılamadı", err);
+        }
+    }
+
+    translateAuthError(code) {
+        switch (code) {
+            case 'auth/user-not-found': return 'Kullanıcı bulunamadı.';
+            case 'auth/wrong-password': return 'Hatalı şifre.';
+            case 'auth/invalid-email': return 'Geçersiz e-posta.';
+            case 'auth/email-already-in-use': return 'Bu e-posta zaten kullanımda.';
+            case 'auth/weak-password': return 'Şifre çok zayıf (en az 6 karakter).';
+            default: return 'Bir hata oluştu. Lüften tekrar deneyin.';
+        }
+    }
+
+    // DATABASE HELPERS
+    getUserDoc() { return doc(db, "users", this.user.uid); }
+    getTransactionsRef() { return collection(db, `users/${this.user.uid}/transactions`); }
+    getTransactionDoc(id) { return doc(db, `users/${this.user.uid}/transactions`, id); }
+    getInstallmentsRef() { return collection(db, `users/${this.user.uid}/installments`); }
+    getInstallmentDoc(id) { return doc(db, `users/${this.user.uid}/installments`, id); }
+    getRecurringRef() { return collection(db, `users/${this.user.uid}/recurringTemplates`); }
+    getRecurringDoc(id) { return doc(db, `users/${this.user.uid}/recurringTemplates`, id); }
+    getDebtsRef() { return collection(db, `users/${this.user.uid}/debts`); }
+    getDebtDoc(id) { return doc(db, `users/${this.user.uid}/debts`, id); }
 }
 
 // Initialize app
