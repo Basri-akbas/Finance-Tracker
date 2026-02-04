@@ -66,6 +66,7 @@ class FinanceTracker {
 
         this.user = null;
         this.authMode = 'login'; // 'login' or 'register'
+        this.initialized = false;
 
         this.setupAuth();
     }
@@ -74,7 +75,11 @@ class FinanceTracker {
         if (!this.user) return;
         console.log("FinanceTracker initializing for user:", this.user.uid);
 
-        this.setupEventListeners();
+        if (!this.initialized) {
+            this.setupEventListeners();
+            this.initialized = true;
+        }
+
         this.loadTheme();
         this.setDefaultDate();
         this.setupLandingForm();
@@ -102,15 +107,6 @@ class FinanceTracker {
 
 
     async loadAllData() {
-        // Load Initial Balances
-        const settingsSnap = await getDocs(collection(db, "settings"));
-        settingsSnap.forEach(doc => {
-            if (doc.id === "initialBalances") {
-                this.initialBalances = doc.data();
-            } else if (doc.id === "customCategories") {
-                this.customCategories = doc.data();
-            }
-        });
         try {
             // Load user profile (balances and categories)
             const userSnap = await getDoc(this.getUserDoc());
@@ -1986,11 +1982,10 @@ class FinanceTracker {
     setupAuth() {
         onAuthStateChanged(auth, (user) => {
             if (user) {
+                if (this.user?.uid === user.uid) return;
                 this.user = user;
                 const authPage = document.getElementById('authPage');
                 if (authPage) authPage.style.display = 'none';
-
-                // Show landing or dashboard based on state
                 this.init();
             } else {
                 this.user = null;
@@ -2006,20 +2001,26 @@ class FinanceTracker {
             authForm.addEventListener('submit', (e) => this.handleAuthSubmit(e));
         }
 
-        const toggleAuth = document.getElementById('toggleAuth');
-        if (toggleAuth) {
-            toggleAuth.addEventListener('click', (e) => {
+        // Global toggle handler (event delegation) to avoid duplicate listeners on innerHTML change
+        document.addEventListener('click', (e) => {
+            if (e.target && e.target.id === 'toggleAuth') {
                 e.preventDefault();
                 this.authMode = this.authMode === 'login' ? 'register' : 'login';
-                document.getElementById('authSubtitle').textContent = this.authMode === 'login' ? 'Giriş Yap' : 'Kayıt Ol';
-                document.getElementById('authSubmitBtn').textContent = this.authMode === 'login' ? 'Giriş Yap' : 'Kayıt Ol';
-                toggleAuth.textContent = this.authMode === 'login' ? 'Kayıt Ol' : 'Giriş Yap';
-                const p = document.querySelector('.auth-toggle');
-                if (p) p.innerHTML = this.authMode === 'login' ? 'Hesabınız yok mu? <a href="#" id="toggleAuth">Kayıt Ol</a>' : 'Zaten hesabınız var mı? <a href="#" id="toggleAuth">Giriş Yap</a>';
-                // Re-add listener because we changed innerHTML
-                this.setupAuth();
-            });
-        }
+
+                const subtitle = document.getElementById('authSubtitle');
+                const submitBtn = document.getElementById('authSubmitBtn');
+                const toggleArea = document.querySelector('.auth-toggle');
+
+                if (subtitle) subtitle.textContent = this.authMode === 'login' ? 'Giriş Yap' : 'Kayıt Ol';
+                if (submitBtn) submitBtn.textContent = this.authMode === 'login' ? 'Giriş Yap' : 'Kayıt Ol';
+
+                if (toggleArea) {
+                    toggleArea.innerHTML = this.authMode === 'login'
+                        ? 'Hesabınız yok mu? <a href="#" id="toggleAuth">Kayıt Ol</a>'
+                        : 'Zaten hesabınız var mı? <a href="#" id="toggleAuth">Giriş Yap</a>';
+                }
+            }
+        });
     }
 
     async handleAuthSubmit(e) {
@@ -2061,7 +2062,9 @@ class FinanceTracker {
             case 'auth/invalid-email': return 'Geçersiz e-posta.';
             case 'auth/email-already-in-use': return 'Bu e-posta zaten kullanımda.';
             case 'auth/weak-password': return 'Şifre çok zayıf (en az 6 karakter).';
-            default: return 'Bir hata oluştu. Lüften tekrar deneyin.';
+            case 'auth/invalid-credential': return 'Geçersiz bilgiler veya kullanıcı bulunamadı. Kayıt olduğunuzdan emin olun.';
+            case 'auth/operation-not-allowed': return 'E-posta/Şifre girişi aktif değil. Lütfen Firebase Console\'dan açın.';
+            default: return 'Bir hata oluştu: ' + code;
         }
     }
 
