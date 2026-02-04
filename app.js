@@ -13,6 +13,15 @@ import {
     orderBy
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
+function logAppError(msg, err) {
+    console.error(msg, err);
+    const logEl = document.getElementById('app-debug-log');
+    if (logEl) {
+        logEl.innerHTML += `<div>${new Date().toLocaleTimeString()}: ${msg} ${err ? (err.message || err) : ''}</div>`;
+        logEl.style.display = 'block';
+    }
+}
+
 // Firebase Configuration
 const firebaseConfig = {
     apiKey: "AIzaSyDDs2p-ix18DsJXUAOa4OjdbGml0VaSGq0",
@@ -31,11 +40,13 @@ const db = getFirestore(firebaseApp);
 // Data Management
 class FinanceTracker {
     constructor() {
+        console.log("FinanceTracker constructor starting...");
         this.transactions = [];
         this.installments = [];
         this.initialBalances = { cash: 0, bank: 0 };
         this.customCategories = { income: [], expense: [] };
         this.recurringTemplates = [];
+        this.debts = [];
 
         this.currentFilter = 'all';
         this.currentCategoryFilter = 'all';
@@ -48,20 +59,27 @@ class FinanceTracker {
     }
 
     async init() {
+        console.log("FinanceTracker init starting...");
         this.setupEventListeners();
+        console.log("EventListeners setup complete");
         this.loadTheme();
+        console.log("Theme loaded");
         this.setDefaultDate();
+        console.log("Default date set");
         this.setupLandingForm();
+        console.log("Landing form setup complete");
 
         try {
             await this.loadAllData();
             await this.checkAndProcessRecurringPayments();
             await this.checkInstallments();
+            await this.loadDebts();
+            console.log("Data/Recurring/Installments/Debts checks complete");
         } catch (error) {
-            console.error("Error loading data:", error);
-            alert("Veriler yüklenirken bir hata oluştu. Lütfen internet bağlantınızı kontrol edin.");
+            logAppError("Veri yükleme hatası", error);
         }
 
+        console.log("Updating summary/UI...");
         this.updateSummary();
         this.renderTransactions();
         this.renderInstallments();
@@ -69,6 +87,7 @@ class FinanceTracker {
         this.renderCustomCategories();
         this.updateCategoryDropdowns();
         this.updateFilterCategoryDropdown();
+        console.log("FinanceTracker init complete");
     }
 
 
@@ -378,6 +397,54 @@ class FinanceTracker {
             this.renderTransactions();
         });
 
+        // Monthly Detail Modal
+        document.getElementById('closeMonthlyDetailModal').addEventListener('click', () => this.closeMonthlyDetailModal());
+
+        // Debt Modal
+        const addDebtBtn = document.getElementById('addDebtBtn');
+        if (addDebtBtn) addDebtBtn.addEventListener('click', () => this.openDebtModal());
+
+        const closeDebtModal = document.getElementById('closeDebtModal');
+        if (closeDebtModal) closeDebtModal.addEventListener('click', () => this.closeDebtModal());
+
+        const cancelDebt = document.getElementById('cancelDebt');
+        if (cancelDebt) cancelDebt.addEventListener('click', () => this.closeDebtModal());
+
+        const debtForm = document.getElementById('debtForm');
+        if (debtForm) debtForm.addEventListener('submit', (e) => this.handleDebtSubmit(e));
+
+        const debtTypeBtns = document.querySelectorAll('.debt-type-selector .type-btn');
+        debtTypeBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const targetBtn = e.target.closest('.type-btn');
+                if (!targetBtn) return;
+                debtTypeBtns.forEach(b => b.classList.remove('active'));
+                targetBtn.classList.add('active');
+                const typeInput = document.getElementById('selectedDebtType');
+                if (typeInput) typeInput.value = targetBtn.dataset.type;
+            });
+        });
+
+        // Event Delegation for Debts List Actions
+        const debtsList = document.getElementById('debtsList');
+        if (debtsList) {
+            debtsList.addEventListener('click', (e) => {
+                const btn = e.target.closest('.btn-icon');
+                if (!btn) return;
+
+                const card = btn.closest('.debt-card');
+                const debtId = btn.dataset.id;
+                const action = btn.dataset.action;
+
+                if (action === 'toggle') this.toggleDebtStatus(debtId);
+                else if (action === 'edit') {
+                    const debt = this.debts.find(d => d.id === debtId);
+                    if (debt) this.openDebtModal(debt);
+                }
+                else if (action === 'delete') this.deleteDebt(debtId);
+            });
+        }
+
         // Close modal on backdrop click
         document.querySelectorAll('.modal').forEach(modal => {
             modal.addEventListener('click', (e) => {
@@ -386,6 +453,19 @@ class FinanceTracker {
                 }
             });
         });
+
+        // Event Delegation for History Cards
+        const historyList = document.getElementById('monthlyHistoryList');
+        if (historyList) {
+            historyList.addEventListener('click', (e) => {
+                const card = e.target.closest('.history-card');
+                if (card) {
+                    const year = parseInt(card.dataset.year);
+                    const month = parseInt(card.dataset.month);
+                    this.openMonthlyDetail(year, month);
+                }
+            });
+        }
     }
 
     setupLandingForm() {
@@ -1353,7 +1433,7 @@ class FinanceTracker {
             const group = groups[key];
             const net = group.income - group.expense;
             return `
-                <div class="history-card">
+                <div class="history-card" data-year="${group.year}" data-month="${group.month}">
                     <div class="history-card-header">
                         <span>${monthNames[group.month]} ${group.year}</span>
                     </div>
@@ -1376,6 +1456,225 @@ class FinanceTracker {
                 </div>
             `;
         }).join('');
+    }
+
+    openMonthlyDetail(year, month) {
+        console.log("Opening monthly detail for:", year, month);
+        try {
+            const monthNames = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
+            const filtered = this.transactions.filter(t => {
+                const d = new Date(t.date);
+                return d.getFullYear() === year && d.getMonth() === month;
+            });
+
+            const totalIncome = filtered.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+            const totalExpense = filtered.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+
+            document.getElementById('monthlyDetailTitle').textContent = `${monthNames[month]} ${year} Detayı`;
+
+            const netStatus = totalIncome - totalExpense;
+            const netEl = document.getElementById('detailNetStatus');
+            netEl.textContent = this.formatCurrency(netStatus);
+            netEl.style.color = netStatus >= 0 ? 'var(--income-color)' : 'var(--expense-color)';
+
+            const groupByCategory = (type) => {
+                const list = filtered.filter(t => t.type === type);
+                const groups = {};
+                list.forEach(t => {
+                    const catId = t.category;
+                    groups[catId] = (groups[catId] || 0) + t.amount;
+                });
+                return Object.entries(groups)
+                    .map(([id, amount]) => ({ id, amount, name: this.getCategoryName(id) }))
+                    .sort((a, b) => b.amount - a.amount);
+            };
+
+            const incomeGroups = groupByCategory('income');
+            const expenseGroups = groupByCategory('expense');
+
+            const renderTo = (groups, containerId, total, type) => {
+                const container = document.getElementById(containerId);
+                if (groups.length === 0) {
+                    container.innerHTML = `<p class="empty-hint">${type === 'income' ? 'Gelir' : 'Gider'} bulunmuyor</p>`;
+                    return;
+                }
+                container.innerHTML = groups.map(g => {
+                    const percentage = total > 0 ? (g.amount / total) * 100 : 0;
+                    return `
+                    <div class="breakdown-item">
+                        <div class="item-info">
+                            <span>${this.escapeHtml(g.name)}</span>
+                            <span>${this.formatCurrency(g.amount)}</span>
+                        </div>
+                        <div class="item-bar-container">
+                            <div class="item-bar" style="width: ${percentage}%"></div>
+                        </div>
+                    </div>
+                `;
+                }).join('');
+            };
+
+            renderTo(incomeGroups, 'detailIncomeList', totalIncome, 'income');
+            renderTo(expenseGroups, 'detailExpenseList', totalExpense, 'expense');
+
+            document.getElementById('monthlyDetailModal').classList.add('active');
+        } catch (err) {
+            logAppError("Aylık detay penceresi açılamadı", err);
+        }
+    }
+
+    closeMonthlyDetailModal() {
+        document.getElementById('monthlyDetailModal').classList.remove('active');
+    }
+
+    // Debt Management
+    async loadDebts() {
+        try {
+            const querySnapshot = await getDocs(query(collection(db, "debts"), orderBy("createdAt", "desc")));
+            this.debts = [];
+            querySnapshot.forEach((doc) => {
+                this.debts.push({ id: doc.id, ...doc.data() });
+            });
+            this.renderDebts();
+        } catch (err) {
+            logAppError("Borçlar yüklenemedi", err);
+        }
+    }
+
+    openDebtModal(debt = null) {
+        const form = document.getElementById('debtForm');
+        form.reset();
+        document.getElementById('debtId').value = debt ? debt.id : '';
+        document.getElementById('debtModalTitle').textContent = debt ? 'Borç / Alacak Düzenle' : 'Borç / Alacak Ekle';
+
+        if (debt) {
+            document.getElementById('debtPerson').value = debt.person;
+            document.getElementById('debtAmount').value = debt.amount;
+            document.getElementById('debtDueDate').value = debt.dueDate || '';
+            document.getElementById('debtDescription').value = debt.description || '';
+            document.getElementById('selectedDebtType').value = debt.type;
+
+            const typeBtns = document.querySelectorAll('.debt-type-selector .type-btn');
+            typeBtns.forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.type === debt.type);
+            });
+        } else {
+            document.getElementById('selectedDebtType').value = 'receivable';
+            const typeBtns = document.querySelectorAll('.debt-type-selector .type-btn');
+            typeBtns.forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.type === 'receivable');
+            });
+        }
+
+        document.getElementById('debtModal').classList.add('active');
+    }
+
+    closeDebtModal() {
+        document.getElementById('debtModal').classList.remove('active');
+    }
+
+    async handleDebtSubmit(e) {
+        e.preventDefault();
+        const id = document.getElementById('debtId').value;
+        const debtData = {
+            type: document.getElementById('selectedDebtType').value,
+            person: document.getElementById('debtPerson').value,
+            amount: parseFloat(document.getElementById('debtAmount').value),
+            dueDate: document.getElementById('debtDueDate').value,
+            description: document.getElementById('debtDescription').value,
+            status: id ? this.debts.find(d => d.id === id).status : 'waiting',
+            createdAt: id ? this.debts.find(d => d.id === id).createdAt : new Date().toISOString()
+        };
+
+        try {
+            if (id) {
+                await updateDoc(doc(db, "debts", id), debtData);
+            } else {
+                await addDoc(collection(db, "debts"), debtData);
+            }
+            this.closeDebtModal();
+            await this.loadDebts();
+        } catch (err) {
+            logAppError("Borç kaydedilemedi", err);
+        }
+    }
+
+    async deleteDebt(id) {
+        if (!confirm('Bu kaydı silmek istediğinize emin misiniz?')) return;
+        try {
+            await deleteDoc(doc(db, "debts", id));
+            await this.loadDebts();
+        } catch (err) {
+            logAppError("Borç silinemedi", err);
+        }
+    }
+
+    async toggleDebtStatus(id) {
+        const debt = this.debts.find(d => d.id === id);
+        const newStatus = debt.status === 'paid' ? 'waiting' : 'paid';
+        try {
+            await updateDoc(doc(db, "debts", id), { status: newStatus });
+            await this.loadDebts();
+        } catch (err) {
+            logAppError("Borç durumu güncellenemedi", err);
+        }
+    }
+
+    renderDebts() {
+        const container = document.getElementById('debtsList');
+        if (!container) return;
+
+        let totalReceivable = 0;
+        let totalPayable = 0;
+
+        if (this.debts.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <p>Henüz borç veya alacak kaydı bulunmuyor</p>
+                </div>`;
+        } else {
+            container.innerHTML = this.debts.map(debt => {
+                const isPaid = debt.status === 'paid';
+                if (!isPaid) {
+                    if (debt.type === 'receivable') totalReceivable += debt.amount;
+                    else totalPayable += debt.amount;
+                }
+
+                return `
+                    <div class="debt-card ${debt.type} ${isPaid ? 'paid' : ''}">
+                        <div class="debt-info">
+                            <h4>${this.escapeHtml(debt.person)}</h4>
+                            <p>${this.escapeHtml(debt.description)}</p>
+                            ${debt.dueDate ? `<p class="due-date">Vade: ${this.formatDate(debt.dueDate)}</p>` : ''}
+                        </div>
+                        <div class="debt-amount">
+                            <span class="value">${this.formatCurrency(debt.amount)}</span>
+                            <span class="status">${isPaid ? 'Ödendi' : 'Bekliyor'}</span>
+                        </div>
+                        <div class="debt-actions">
+                            <button class="btn-icon" data-action="toggle" data-id="${debt.id}" title="${isPaid ? 'Bekliyor Yap' : 'Ödendi İşaretle'}">
+                                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor">
+                                    <path d="M5 10l3 3l7-7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </button>
+                            <button class="btn-icon" data-action="edit" data-id="${debt.id}" title="Düzenle">
+                                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor">
+                                    <path d="M11 4H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1l1-4l9.5-9.5z" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </button>
+                            <button class="btn-icon" data-action="delete" data-id="${debt.id}" title="Sil">
+                                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor">
+                                    <path d="M3 6h14m-2 0v12a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        document.getElementById('totalReceivable').textContent = this.formatCurrency(totalReceivable);
+        document.getElementById('totalPayable').textContent = this.formatCurrency(totalPayable);
     }
 
     renderTransactions() {
@@ -1578,28 +1877,25 @@ class FinanceTracker {
 // Initialize app
 document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('error', (event) => {
-        console.error('GLOBAL ERROR:', event.error);
+        logAppError('Sistem Hatası:', event.error);
     });
     window.addEventListener('unhandledrejection', (event) => {
-        console.error('UNHANDLED REJECTION:', event.reason);
+        logAppError('Beklenmedik Hata:', event.reason);
     });
 
-    window.app = new FinanceTracker();
+    try {
+        console.log("DOM ready, initializing app...");
+        window.app = new FinanceTracker();
+    } catch (err) {
+        logAppError("Uygulama başlatılamadı", err);
+    }
 
-    // Register Service Worker
+    // Temporary Debug: Unregister Service Worker to clear cache issues
     if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-            navigator.serviceWorker.register('./sw.js')
-                .then(reg => console.log('Service Worker registered:', reg))
-                .catch(err => console.log('Service Worker registration failed:', err));
-        });
-
-        // Handle automatic update when new service worker takes control
-        let refreshing = false;
-        navigator.serviceWorker.addEventListener('controllerchange', () => {
-            if (!refreshing) {
-                refreshing = true;
-                window.location.reload();
+        navigator.serviceWorker.getRegistrations().then(function (registrations) {
+            for (let registration of registrations) {
+                registration.unregister();
+                console.log("Service Worker unregistered for debug");
             }
         });
     }

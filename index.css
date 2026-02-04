@@ -442,9 +442,19 @@ body {
 }
 
 .transaction-item:hover,
-.installment-item:hover {
+.installment-item:hover,
+.history-card:hover {
     border-color: var(--bg-tertiary);
     transform: translateX(4px);
+}
+
+.history-card {
+    cursor: pointer;
+    background: var(--bg-primary);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-md);
+    transition: all var(--transition-fast);
+    border: 2px solid transparent;
 }
 
 .transaction-icon,
@@ -1105,4 +1115,80 @@ form {
     .form-row {
         grid-template-columns: 1fr;
     }
+}
+
+/* Debt Styles */
+.debt-summary-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-lg);
+}
+
+.debt-type-selector {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--spacing-sm);
+}
+
+.debt-card {
+    background: var(--bg-secondary);
+    padding: var(--spacing-md);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-left: 4px solid var(--text-tertiary);
+    transition: transform var(--transition-fast);
+}
+
+.debt-card:hover {
+    transform: translateX(4px);
+}
+
+.debt-card.receivable {
+    border-left-color: var(--income-color);
+}
+
+.debt-card.payable {
+    border-left-color: var(--expense-color);
+}
+
+.debt-card.paid {
+    opacity: 0.6;
+    border-left-color: var(--text-tertiary);
+}
+
+.debt-info h4 {
+    font-size: 1rem;
+    margin-bottom: 4px;
+}
+
+.debt-info p {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.debt-amount {
+    text-align: right;
+}
+
+.debt-amount .value {
+    display: block;
+    font-weight: 700;
+    font-size: 1.1rem;
+}
+
+.debt-amount .status {
+    font-size: 0.75rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: var(--bg-tertiary);
+}
+
+.debt-actions {
+    display: flex;
+    gap: var(--spacing-xs);
+    margin-left: var(--spacing-md);
 }

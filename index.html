@@ -240,6 +240,7 @@
                     <button class="tab-btn" data-tab="transactions">İşlemler</button>
                     <button class="tab-btn" data-tab="installments">Taksitler</button>
                     <button class="tab-btn" data-tab="recurring">Otomatik</button>
+                    <button class="tab-btn" data-tab="debts">Borçlar</button>
                 </div>
 
                 <!-- Monthly Summary Tab -->
@@ -373,6 +374,47 @@
                             </svg>
                             <p>Henüz düzenli işlem bulunmuyor</p>
                             <p class="empty-state-hint">Sık tekrarlanan işlemlerinizi buradan yönetebilirsiniz</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Debts Tab -->
+                <div class="tab-content" id="debts-tab">
+                    <div class="content-header">
+                        <h3>Borç ve Alacak Takibi</h3>
+                        <button class="btn-primary" id="addDebtBtn">
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                                <path d="M10 5v10m5-5H5" stroke="white" stroke-width="2" stroke-linecap="round" />
+                            </svg>
+                            Yeni Borç/Alacak
+                        </button>
+                    </div>
+
+                    <div class="debt-summary-grid">
+                        <div class="summary-breakdown-card receivable">
+                            <div class="breakdown-header">
+                                <span>Alınacak (Alacak)</span>
+                                <span id="totalReceivable" class="income-value">€0.00</span>
+                            </div>
+                        </div>
+                        <div class="summary-breakdown-card payable">
+                            <div class="breakdown-header">
+                                <span>Verilecek (Borç)</span>
+                                <span id="totalPayable" class="expense-value">€0.00</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="debts-list" id="debtsList">
+                        <div class="empty-state">
+                            <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+                                <path d="M16 48h32M16 32h32M16 16h32" stroke="currentColor" stroke-width="2"
+                                    opacity="0.2" />
+                                <circle cx="40" cy="40" r="12" stroke="currentColor" stroke-width="2" opacity="0.3" />
+                            </svg>
+                            <p>Henüz borç veya alacak kaydı bulunmuyor</p>
+                            <p class="empty-state-hint">Bilgilendirme amaçlı borçlarınızı buradan takip edebilirsiniz
+                            </p>
                         </div>
                     </div>
                 </div>
@@ -606,12 +648,103 @@
                     <div id="expenseCategoriesList" class="categories-list"></div>
                 </div>
             </div>
+        </div> <!-- Closes modal-content -->
+    </div> <!-- Closes categoryModal -->
+
+    <!-- Debt Modal -->
+    <div class="modal" id="debtModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="debtModalTitle">Borç / Alacak Ekle</h3>
+                <button class="btn-icon" id="closeDebtModal">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M6 6l8 8m0-8l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                    </svg>
+                </button>
+            </div>
+            <form id="debtForm">
+                <input type="hidden" id="debtId">
+                <div class="form-group">
+                    <label>Tür</label>
+                    <div class="debt-type-selector">
+                        <button type="button" class="type-btn active" data-type="receivable">Alacak</button>
+                        <button type="button" class="type-btn" data-type="payable">Borç</button>
+                    </div>
+                    <input type="hidden" id="selectedDebtType" value="receivable">
+                </div>
+                <div class="form-group">
+                    <label for="debtPerson">Kişi / Kurum</label>
+                    <input type="text" id="debtPerson" placeholder="Örn: Ahmet Yılmaz" required>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="debtAmount">Tutar</label>
+                        <input type="number" id="debtAmount" step="0.01" placeholder="0.00" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="debtDueDate">Vade Tarihi (Opsiyonel)</label>
+                        <input type="date" id="debtDueDate">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="debtDescription">Açıklama</label>
+                    <textarea id="debtDescription" placeholder="Detaylar..."></textarea>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn-secondary" id="cancelDebt">İptal</button>
+                    <button type="submit" class="btn-primary">Kaydet</button>
+                </div>
+            </form>
         </div>
     </div>
 
+    <!-- Monthly Detail Modal -->
+    <div class="modal" id="monthlyDetailModal">
+        <div class="modal-content">
+            <div class="modal-header"
+                style="border-bottom: 1px solid var(--bg-tertiary); padding: var(--spacing-md) var(--spacing-lg);">
+                <h3 id="monthlyDetailTitle">Ay Detayı</h3>
+                <button class="btn-icon" id="closeMonthlyDetailModal">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M6 6l8 8m0-8l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                    </svg>
+                </button>
+            </div>
+            <div style="padding: var(--spacing-lg);">
+                <div class="summary-breakdown-card net-card"
+                    style="margin-bottom: var(--spacing-lg); padding: var(--spacing-md); background: var(--bg-tertiary); border-radius: var(--radius-md);">
+                    <div class="breakdown-header"
+                        style="display: flex; justify-content: space-between; align-items: center; font-weight: 700;">
+                        <span>Aylık Net Durum</span>
+                        <span id="detailNetStatus" class="net-value">€0.00</span>
+                    </div>
+                </div>
+
+                <div class="breakdown-columns" style="display: flex; flex-direction: column; gap: var(--spacing-lg);">
+                    <div class="breakdown-column">
+                        <h4 class="column-title income"
+                            style="margin-bottom: var(--spacing-sm); color: var(--income-color);">Gelir Dağılımı
+                        </h4>
+                        <div id="detailIncomeList" class="breakdown-list"
+                            style="display: flex; flex-direction: column; gap: var(--spacing-sm);"></div>
+                    </div>
+                    <div class="breakdown-column">
+                        <h4 class="column-title expense"
+                            style="margin-bottom: var(--spacing-sm); color: var(--expense-color);">Gider Dağılımı
+                        </h4>
+                        <div id="detailExpenseList" class="breakdown-list"
+                            style="display: flex; flex-direction: column; gap: var(--spacing-sm);"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <script type="module" src="app.js?v=2"></script>
+    <div id="app-debug-log"
+        style="position: fixed; bottom: 10px; right: 10px; background: rgba(0,0,0,0.8); color: #ef4444; padding: 10px; border-radius: 8px; font-size: 12px; z-index: 9999; display: none; max-width: 300px; max-height: 200px; overflow-y: auto; text-align: left;">
+    </div>
+
+    <script type="module" src="app.js?v=7"></script>
 </body>
 
 </html>

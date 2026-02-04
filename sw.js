@@ -1,4 +1,5 @@
-const CACHE_NAME = 'finance-tracker-v4';
+const CACHE_NAME = 'finance-tracker-v6';
+console.log("Service Worker v6 script loaded");
 const ASSETS = [
     '/',
     '/index.html',
