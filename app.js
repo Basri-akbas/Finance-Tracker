@@ -1987,6 +1987,8 @@ class FinanceTracker {
                 const authPage = document.getElementById('authPage');
                 if (authPage) authPage.style.display = 'none';
                 this.init();
+                // Show landing page after successful authentication
+                this.switchView('landing');
             } else {
                 this.user = null;
                 const authPage = document.getElementById('authPage');
