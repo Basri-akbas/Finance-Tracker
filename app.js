@@ -2000,6 +2000,7 @@ class FinanceTracker {
 
     // PIN LOGIC
     setupPinUI() {
+        console.log("Setting up PIN UI...");
         document.querySelectorAll('.pin-key[data-key]').forEach(key => {
             key.addEventListener('click', (e) => {
                 const btn = e.target.closest('.pin-key');
@@ -2015,7 +2016,11 @@ class FinanceTracker {
 
         const enterBtn = document.getElementById('pinEnterBtn');
         if (enterBtn) {
-            enterBtn.addEventListener('click', () => this.handlePinAction());
+            console.log("Enter button found");
+            enterBtn.addEventListener('click', () => {
+                console.log("Enter button clicked");
+                this.handlePinAction();
+            });
         }
 
         const logoutBtn = document.getElementById('pinLogoutBtn');
@@ -2071,7 +2076,11 @@ class FinanceTracker {
     }
 
     handlePinAction() {
-        if (this.pinInput.length !== 4) return;
+        console.log("Checking PIN action. Input:", this.pinInput, "Length:", this.pinInput.length);
+        if (this.pinInput.length !== 4) {
+            alert("Lütfen 4 haneli PIN giriniz.");
+            return;
+        }
 
         if (this.pinMode === 'verify') {
             this.verifyPin();
@@ -2092,12 +2101,16 @@ class FinanceTracker {
     }
 
     async verifyPin() {
-        if (this.pinInput === this.storedPin) {
+        console.log("Verifying PIN. Input:", this.pinInput, "Stored:", this.storedPin);
+        // Force string comparison to avoid type issues
+        if (String(this.pinInput) === String(this.storedPin)) {
+            console.log("PIN Verified!");
             this.isPinVerified = true;
             document.getElementById('pinScreen').style.display = 'none';
             this.init();
             this.switchView('landing');
         } else {
+            console.warn("PIN Mismatch");
             alert("Hatalı PIN!");
             this.pinInput = "";
             this.updatePinDisplay();
