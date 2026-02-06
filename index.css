@@ -1265,3 +1265,136 @@ form {
 [style*="display: none"] {
     display: none !important;
 }
+
+/* Modern PIN Screen Redesign */
+.pin-screen {
+    position: fixed !important;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    /* Gradient Background */
+    background: radial-gradient(circle at center, #1e3c72 0%, #2a5298 100%) !important;
+    z-index: 9999 !important;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    backdrop-filter: blur(10px);
+    color: white !important;
+}
+
+.pin-container {
+    text-align: center;
+    max-width: 360px;
+    width: 100%;
+    padding: var(--spacing-lg);
+}
+
+.pin-screen .logo {
+    margin-bottom: var(--spacing-lg);
+    filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3));
+}
+
+#pinTitle {
+    font-size: 1.4rem;
+    font-weight: 500;
+    margin-bottom: var(--spacing-xs);
+    letter-spacing: 0.5px;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+    color: white !important;
+}
+
+#pinSubtitle {
+    font-size: 0.9rem;
+    color: rgba(255, 255, 255, 0.7) !important;
+    margin-bottom: var(--spacing-xl);
+}
+
+.pin-display {
+    display: flex;
+    justify-content: center;
+    gap: 24px;
+    margin-bottom: 40px;
+}
+
+.pin-dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.5);
+    background: transparent;
+    transition: all 0.2s ease;
+}
+
+.pin-dot.filled {
+    background: white;
+    border-color: white;
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+}
+
+.pin-keypad {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+    justify-items: center;
+}
+
+.pin-key {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+    background: rgba(255, 255, 255, 0.1) !important;
+    font-size: 1.8rem;
+    font-weight: 400;
+    color: white !important;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    backdrop-filter: blur(4px);
+    position: relative;
+    margin: 0;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+.pin-key:hover {
+    background: rgba(255, 255, 255, 0.2) !important;
+    border-color: rgba(255, 255, 255, 0.8) !important;
+}
+
+.pin-key:active {
+    background: rgba(255, 255, 255, 0.3) !important;
+    transform: scale(0.95);
+}
+
+.logout-key {
+    font-size: 0.9rem;
+    font-weight: 600;
+    background: transparent !important;
+    border: none !important;
+    color: rgba(255,255,255,0.8) !important;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    box-shadow: none;
+}
+
+.logout-key:hover {
+    color: #ffcccb !important;
+}
+
+.delete-key {
+    background: transparent !important;
+    border: none !important;
+    color: rgba(255,255,255,0.8) !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: none;
+}
+
+.delete-key:hover {
+    color: white !important;
+}
