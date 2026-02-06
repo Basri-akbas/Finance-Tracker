@@ -18,9 +18,7 @@ import {
     signInWithEmailAndPassword,
     createUserWithEmailAndPassword,
     onAuthStateChanged,
-    signOut,
-    setPersistence,
-    browserSessionPersistence
+    signOut
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
 function logAppError(msg, err) {
@@ -48,11 +46,6 @@ const firebaseApp = initializeApp(firebaseConfig);
 const db = getFirestore(firebaseApp);
 const auth = getAuth(firebaseApp);
 
-// Set persistence to SESSION (ask for credentials every time tab is closed/reopened)
-setPersistence(auth, browserSessionPersistence)
-    .then(() => console.log("Auth persistence set to SESSION"))
-    .catch((error) => console.error("Persistence error:", error));
-
 // Data Management
 class FinanceTracker {
     constructor() {
@@ -74,6 +67,13 @@ class FinanceTracker {
         this.user = null;
         this.authMode = 'login'; // 'login' or 'register'
         this.initialized = false;
+
+        // PIN Authentication
+        this.pinInput = "";
+        this.storedPin = null;
+        this.isPinVerified = false;
+        this.pinMode = 'create'; // 'create' or 'verify'
+        this.pinUIInitialized = false;
 
         this.setupAuth();
     }
@@ -1998,6 +1998,126 @@ class FinanceTracker {
         if (dateInput) dateInput.value = today;
     }
 
+    // PIN LOGIC
+    setupPinUI() {
+        document.querySelectorAll('.pin-key').forEach(key => {
+            key.addEventListener('click', (e) => {
+                const btn = e.target.closest('.pin-key');
+                if (!btn) return;
+
+                if (btn.id === 'pinLogoutBtn') {
+                    this.handleLogout();
+                } else if (btn.id === 'pinDeleteBtn') {
+                    this.handlePinInput('delete');
+                } else {
+                    this.handlePinInput(btn.dataset.key);
+                }
+            });
+        });
+    }
+
+    async checkPinStatus() {
+        try {
+            const userDoc = await getDoc(this.getUserDoc());
+            const pinScreen = document.getElementById('pinScreen');
+            const pinTitle = document.getElementById('pinTitle');
+            const pinSubtitle = document.getElementById('pinSubtitle');
+
+            this.pinInput = "";
+            this.updatePinDisplay();
+            pinScreen.style.display = 'flex';
+
+            if (userDoc.exists() && userDoc.data().pin) {
+                // PIN exists, ask to enter
+                this.storedPin = userDoc.data().pin;
+                this.pinMode = 'verify';
+                pinTitle.textContent = "PIN Giriniz";
+                pinSubtitle.textContent = "Devam etmek için 4 haneli PIN girin";
+            } else {
+                // No PIN, ask to create
+                this.storedPin = null;
+                this.pinMode = 'create';
+                pinTitle.textContent = "PIN Oluşturun";
+                pinSubtitle.textContent = "Güvenliğiniz için 4 haneli bir PIN belirleyin";
+            }
+
+            // Setup UI once
+            if (!this.pinUIInitialized) {
+                this.setupPinUI();
+                this.pinUIInitialized = true;
+            }
+        } catch (error) {
+            console.error("Error checking PIN:", error);
+            alert("PIN durumu kontrol edilemedi: " + error.message);
+        }
+    }
+
+    handlePinInput(key) {
+        if (key === 'delete') {
+            this.pinInput = this.pinInput.slice(0, -1);
+        } else if (this.pinInput.length < 4) {
+            this.pinInput += key;
+        }
+
+        this.updatePinDisplay();
+
+        if (this.pinInput.length === 4) {
+            setTimeout(() => {
+                if (this.pinMode === 'verify') {
+                    this.verifyPin();
+                } else {
+                    this.createPin();
+                }
+            }, 100);
+        }
+    }
+
+    updatePinDisplay() {
+        const dots = document.querySelectorAll('.pin-dot');
+        dots.forEach((dot, index) => {
+            if (index < this.pinInput.length) {
+                dot.classList.add('filled');
+            } else {
+                dot.classList.remove('filled');
+            }
+        });
+    }
+
+    async verifyPin() {
+        if (this.pinInput === this.storedPin) {
+            this.isPinVerified = true;
+            document.getElementById('pinScreen').style.display = 'none';
+            this.init();
+            this.switchView('landing');
+        } else {
+            alert("Hatalı PIN!");
+            this.pinInput = "";
+            this.updatePinDisplay();
+        }
+    }
+
+    async createPin() {
+        if (confirm(`PIN kodunuz ${this.pinInput} olarak ayarlanacak. Onaylıyor musunuz?`)) {
+            try {
+                await setDoc(this.getUserDoc(), { pin: this.pinInput }, { merge: true });
+                this.storedPin = this.pinInput;
+                this.isPinVerified = true;
+                alert("PIN Başarıyla Oluşturuldu!");
+                document.getElementById('pinScreen').style.display = 'none';
+                this.init();
+                this.switchView('landing');
+            } catch (error) {
+                console.error("Error saving PIN:", error);
+                alert("PIN kaydedilemedi.");
+                this.pinInput = "";
+                this.updatePinDisplay();
+            }
+        } else {
+            this.pinInput = "";
+            this.updatePinDisplay();
+        }
+    }
+
     // AUTH LOGIC
     setupAuth() {
         onAuthStateChanged(auth, (user) => {
@@ -2006,15 +2126,18 @@ class FinanceTracker {
                 this.user = user;
                 const authPage = document.getElementById('authPage');
                 if (authPage) authPage.style.display = 'none';
-                this.init();
-                // Show landing page after successful authentication
-                this.switchView('landing');
+
+                // Start PIN flow instead of direct init
+                this.checkPinStatus();
             } else {
                 this.user = null;
+                this.isPinVerified = false;
+                this.pinInput = "";
                 const authPage = document.getElementById('authPage');
                 if (authPage) authPage.style.display = 'flex';
                 document.getElementById('landingPage').style.display = 'none';
                 document.getElementById('dashboardPage').style.display = 'none';
+                document.getElementById('pinScreen').style.display = 'none';
             }
         });
 

@@ -787,6 +787,53 @@
         style="position: fixed; bottom: 10px; right: 10px; background: rgba(0,0,0,0.8); color: #ef4444; padding: 10px; border-radius: 8px; font-size: 12px; z-index: 9999; display: none; max-width: 300px; max-height: 200px; overflow-y: auto; text-align: left;">
     </div>
 
+    <!-- PIN Screen -->
+    <div id="pinScreen" class="pin-screen" style="display: none;">
+        <div class="pin-container">
+            <div class="logo">
+                <svg width="64" height="64" viewBox="0 0 32 32" fill="none">
+                    <circle cx="16" cy="16" r="14" fill="url(#gradientPin)" />
+                    <path d="M16 8V24M12 12L16 8L20 12M12 20L16 24L20 20" stroke="white" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round" />
+                    <defs>
+                        <linearGradient id="gradientPin" x1="0" y1="0" x2="32" y2="32">
+                            <stop offset="0%" stop-color="#667eea" />
+                            <stop offset="100%" stop-color="#764ba2" />
+                        </linearGradient>
+                    </defs>
+                </svg>
+            </div>
+            <h2 id="pinTitle">PIN Giriniz</h2>
+            <p id="pinSubtitle">Devam etmek için 4 haneli PIN girin</p>
+
+            <div class="pin-display">
+                <div class="pin-dot"></div>
+                <div class="pin-dot"></div>
+                <div class="pin-dot"></div>
+                <div class="pin-dot"></div>
+            </div>
+
+            <div class="pin-keypad">
+                <button class="pin-key" data-key="1">1</button>
+                <button class="pin-key" data-key="2">2</button>
+                <button class="pin-key" data-key="3">3</button>
+                <button class="pin-key" data-key="4">4</button>
+                <button class="pin-key" data-key="5">5</button>
+                <button class="pin-key" data-key="6">6</button>
+                <button class="pin-key" data-key="7">7</button>
+                <button class="pin-key" data-key="8">8</button>
+                <button class="pin-key" data-key="9">9</button>
+                <button class="pin-key logout-key" id="pinLogoutBtn">Çıkış</button>
+                <button class="pin-key" data-key="0">0</button>
+                <button class="pin-key delete-key" id="pinDeleteBtn">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path d="M21 12H7M7 12L13 6M7 12L13 18" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script type="module" src="app.js?v=7"></script>
 </body>
 
