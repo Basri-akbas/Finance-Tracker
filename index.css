@@ -1276,7 +1276,8 @@ form {
     /* Gradient Background */
     background: radial-gradient(circle at center, #1e3c72 0%, #2a5298 100%) !important;
     z-index: 9999 !important;
-    display: flex !important;
+    display: none;
+    /* Default hidden, JS will toggle flex */
     align-items: center;
     justify-content: center;
     flex-direction: column;
