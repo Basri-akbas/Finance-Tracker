@@ -18,7 +18,9 @@ import {
     signInWithEmailAndPassword,
     createUserWithEmailAndPassword,
     onAuthStateChanged,
-    signOut
+    signOut,
+    setPersistence,
+    browserSessionPersistence
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
 function logAppError(msg, err) {
@@ -46,6 +48,11 @@ const firebaseApp = initializeApp(firebaseConfig);
 const db = getFirestore(firebaseApp);
 const auth = getAuth(firebaseApp);
 
+// Set persistence to SESSION (ask for credentials every time tab is closed/reopened)
+setPersistence(auth, browserSessionPersistence)
+    .then(() => console.log("Auth persistence set to SESSION"))
+    .catch((error) => console.error("Persistence error:", error));
+
 // Data Management
 class FinanceTracker {
     constructor() {
@@ -70,6 +77,7 @@ class FinanceTracker {
 
         this.setupAuth();
     }
+
 
     async init() {
         if (!this.user) return;
@@ -352,6 +360,18 @@ class FinanceTracker {
 
     // Event Listeners
     setupEventListeners() {
+        // Add Migration Button
+        const headerActions = document.querySelector('.header-actions');
+        if (headerActions && !document.getElementById('migrateDataBtn')) {
+            const btn = document.createElement('button');
+            btn.id = 'migrateDataBtn';
+            btn.className = 'btn-secondary';
+            btn.style.marginRight = '10px';
+            btn.textContent = 'Eski Verileri Al';
+            btn.onclick = () => this.migrateOldData();
+            headerActions.prepend(btn);
+        }
+
         // Landing Page Actions
         const goToDashboard = document.getElementById('goToDashboard');
         const mainLogo = document.querySelector('.app-header .logo');
@@ -2080,6 +2100,90 @@ class FinanceTracker {
     getRecurringDoc(id) { return doc(db, `users/${this.user.uid}/recurringTemplates`, id); }
     getDebtsRef() { return collection(db, `users/${this.user.uid}/debts`); }
     getDebtDoc(id) { return doc(db, `users/${this.user.uid}/debts`, id); }
+
+    async migrateOldData() {
+        if (!confirm("Eski verileri bu hesaba aktarmak istediğinize emin misiniz? Bu işlem mevcut verilerle birleşecektir.")) return;
+
+        const btn = document.getElementById('migrateDataBtn');
+        if (btn) {
+            btn.disabled = true;
+            btn.textContent = 'Aktarılıyor...';
+        }
+
+        try {
+            const uid = this.user.uid;
+            let count = 0;
+
+            console.log("Starting migration for user:", uid);
+
+            // 1. Transactions
+            try {
+                const oldTransSnapshot = await getDocs(collection(db, "transactions"));
+                console.log(`Found ${oldTransSnapshot.size} old transactions`);
+                for (const docSnap of oldTransSnapshot.docs) {
+                    await setDoc(doc(db, `users/${uid}/transactions`, docSnap.id), docSnap.data());
+                    count++;
+                }
+            } catch (e) { console.warn("Error migrating transactions:", e); }
+
+            // 2. Installments
+            try {
+                const oldInstSnapshot = await getDocs(collection(db, "installments"));
+                console.log(`Found ${oldInstSnapshot.size} old installments`);
+                for (const docSnap of oldInstSnapshot.docs) {
+                    await setDoc(doc(db, `users/${uid}/installments`, docSnap.id), docSnap.data());
+                    count++;
+                }
+            } catch (e) { console.warn("Error migrating installments:", e); }
+
+            // 3. Recurring
+            try {
+                const oldRecSnapshot = await getDocs(collection(db, "recurringTemplates"));
+                console.log(`Found ${oldRecSnapshot.size} old recurring templates`);
+                for (const docSnap of oldRecSnapshot.docs) {
+                    await setDoc(doc(db, `users/${uid}/recurringTemplates`, docSnap.id), docSnap.data());
+                    count++;
+                }
+            } catch (e) { console.warn("Error migrating recurring:", e); }
+
+            // 4. Debts
+            try {
+                const oldDebtsSnapshot = await getDocs(collection(db, "debts"));
+                console.log(`Found ${oldDebtsSnapshot.size} old debts`);
+                for (const docSnap of oldDebtsSnapshot.docs) {
+                    await setDoc(doc(db, `users/${uid}/debts`, docSnap.id), docSnap.data());
+                    count++;
+                }
+            } catch (e) { console.warn("Error migrating debts:", e); }
+
+            // 5. Settings (Custom Categories)
+            try {
+                const oldSettingsSnapshot = await getDocs(collection(db, "settings"));
+                if (!oldSettingsSnapshot.empty) {
+                    const settingsData = oldSettingsSnapshot.docs[0].data();
+                    if (settingsData.customCategories) {
+                        await setDoc(doc(db, "users", uid), {
+                            customCategories: settingsData.customCategories
+                        }, {
+                            merge: true
+                        });
+                        console.log("Migrated custom categories");
+                    }
+                }
+            } catch (e) { console.warn("Error migrating settings:", e); }
+
+            alert(`İşlem Başarılı! Toplam ${count} kayıt aktarıldı. Sayfa yenileniyor...`);
+            window.location.reload();
+
+        } catch (error) {
+            console.error("Migration fatal error:", error);
+            alert("Bir hata oluştu: " + error.message);
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = 'Tekrar Dene';
+            }
+        }
+    }
 }
 
 // Initialize app
