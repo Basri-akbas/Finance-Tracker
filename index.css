@@ -1293,7 +1293,7 @@ form {
 
 .pin-screen .logo {
     margin-bottom: var(--spacing-lg);
-    filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3));
+    filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.3));
 }
 
 #pinTitle {
@@ -1301,7 +1301,7 @@ form {
     font-weight: 500;
     margin-bottom: var(--spacing-xs);
     letter-spacing: 0.5px;
-    text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
     color: white !important;
 }
 
@@ -1357,7 +1357,7 @@ form {
     backdrop-filter: blur(4px);
     position: relative;
     margin: 0;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
 .pin-key:hover {
@@ -1370,31 +1370,25 @@ form {
     transform: scale(0.95);
 }
 
-.logout-key {
-    font-size: 0.9rem;
+.enter-key {
+    font-size: 1rem !important;
     font-weight: 600;
-    background: transparent !important;
-    border: none !important;
-    color: rgba(255,255,255,0.8) !important;
-    text-transform: uppercase;
     letter-spacing: 1px;
-    box-shadow: none;
-}
-
-.logout-key:hover {
-    color: #ffcccb !important;
 }
 
 .delete-key {
-    background: transparent !important;
-    border: none !important;
-    color: rgba(255,255,255,0.8) !important;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: none;
 }
 
-.delete-key:hover {
+.logout-link {
+    font-family: inherit;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+    transition: all 0.2s;
+}
+
+.logout-link:hover {
     color: white !important;
+    text-decoration: underline;
 }

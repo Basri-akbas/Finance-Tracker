@@ -2000,20 +2000,28 @@ class FinanceTracker {
 
     // PIN LOGIC
     setupPinUI() {
-        document.querySelectorAll('.pin-key').forEach(key => {
+        document.querySelectorAll('.pin-key[data-key]').forEach(key => {
             key.addEventListener('click', (e) => {
                 const btn = e.target.closest('.pin-key');
                 if (!btn) return;
-
-                if (btn.id === 'pinLogoutBtn') {
-                    this.handleLogout();
-                } else if (btn.id === 'pinDeleteBtn') {
-                    this.handlePinInput('delete');
-                } else {
-                    this.handlePinInput(btn.dataset.key);
-                }
+                this.handlePinInput(btn.dataset.key);
             });
         });
+
+        const deleteBtn = document.getElementById('pinDeleteBtn');
+        if (deleteBtn) {
+            deleteBtn.addEventListener('click', () => this.handlePinInput('delete'));
+        }
+
+        const enterBtn = document.getElementById('pinEnterBtn');
+        if (enterBtn) {
+            enterBtn.addEventListener('click', () => this.handlePinAction());
+        }
+
+        const logoutBtn = document.getElementById('pinLogoutBtn');
+        if (logoutBtn) {
+            logoutBtn.addEventListener('click', () => this.handleLogout());
+        }
     }
 
     async checkPinStatus() {
@@ -2060,15 +2068,15 @@ class FinanceTracker {
         }
 
         this.updatePinDisplay();
+    }
 
-        if (this.pinInput.length === 4) {
-            setTimeout(() => {
-                if (this.pinMode === 'verify') {
-                    this.verifyPin();
-                } else {
-                    this.createPin();
-                }
-            }, 100);
+    handlePinAction() {
+        if (this.pinInput.length !== 4) return;
+
+        if (this.pinMode === 'verify') {
+            this.verifyPin();
+        } else {
+            this.createPin();
         }
     }
 
