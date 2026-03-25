@@ -1393,3 +1393,37 @@ form {
     color: white !important;
     text-decoration: underline;
 }
+
+/* Mobile Overrides for Modals & Forms */
+@media (max-width: 768px) {
+    .modal {
+        padding: var(--spacing-xs);
+    }
+    .modal-content {
+        max-height: 98vh;
+        border-radius: var(--radius-md);
+    }
+    .modal-header {
+        padding: var(--spacing-md);
+    }
+    form {
+        padding: var(--spacing-md);
+    }
+    .form-group {
+        margin-bottom: var(--spacing-md);
+    }
+    .form-group label {
+        font-size: 0.9rem;
+        margin-bottom: 2px;
+    }
+    .form-group input,
+    .form-group select {
+        padding: 8px var(--spacing-sm);
+    }
+    .type-btn, .payment-btn {
+        padding: 8px;
+    }
+    .form-actions {
+        margin-top: var(--spacing-md);
+    }
+}
