@@ -63,6 +63,7 @@ class FinanceTracker {
         this.currentLandingTransactionType = 'income';
         this.currentPaymentMethod = 'cash';
         this.currentLandingPaymentMethod = 'cash';
+        this.transactionViewMode = 'list';
 
         this.user = null;
         this.authMode = 'login'; // 'login' or 'register'
@@ -477,6 +478,16 @@ class FinanceTracker {
         document.getElementById('filterCategory').addEventListener('change', (e) => {
             this.currentCategoryFilter = e.target.value;
             this.renderTransactions();
+        });
+
+        // View Toggle
+        document.querySelectorAll('.view-toggle .toggle-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.view-toggle .toggle-btn').forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                this.transactionViewMode = e.target.dataset.view;
+                this.renderTransactions();
+            });
         });
 
         // Monthly Detail Modal
@@ -1725,39 +1736,103 @@ class FinanceTracker {
             return;
         }
 
-        container.innerHTML = filtered.map(transaction => `
-            <div class="transaction-item ${transaction.type}">
-                <div class="transaction-icon">
-                    ${transaction.type === 'income' ? `
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                            <path d="M12 5v14m7-7l-7-7-7 7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                        </svg>
-                    ` : `
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                            <path d="M12 19V5m-7 7l7 7 7-7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                        </svg>
-                    `}
-                </div>
-                <div class="transaction-details">
-                    <div class="transaction-description">${this.escapeHtml(transaction.description)}</div>
-                    <div class="transaction-meta">
-                        <span>${this.formatDate(transaction.date)}</span>
-                        <span>•</span>
-                        <span class="transaction-category-tag">${this.escapeHtml(this.getCategoryName(transaction.category))}</span>
-                        <span>•</span>
-                        <span>${transaction.paymentMethod === 'cash' ? 'Nakit' : 'Banka'}</span>
+        if (this.transactionViewMode === 'summary') {
+            // Group by Month/Year and then by Category
+            const groups = {};
+            filtered.forEach(t => {
+                const date = new Date(t.date);
+                const monthYear = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+                
+                if (!groups[monthYear]) {
+                    groups[monthYear] = {
+                        dateObj: date,
+                        categories: {},
+                        total: 0
+                    };
+                }
+                
+                if (!groups[monthYear].categories[t.category]) {
+                    groups[monthYear].categories[t.category] = { amount: 0, type: t.type };
+                }
+                
+                groups[monthYear].categories[t.category].amount += t.amount;
+                groups[monthYear].total += t.type === 'income' ? t.amount : -t.amount;
+            });
+
+            const sortedMonths = Object.keys(groups).sort((a, b) => b.localeCompare(a));
+            const monthNames = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
+
+            container.innerHTML = sortedMonths.map(monthKey => {
+                const group = groups[monthKey];
+                const catHtml = Object.entries(group.categories).map(([catId, catData]) => `
+                    <div class="transaction-item ${catData.type}" style="margin-top: var(--spacing-sm);">
+                        <div class="transaction-icon" style="width: 36px; height: 36px;">
+                            ${catData.type === 'income' ? `
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                    <path d="M12 5v14m7-7l-7-7-7 7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            ` : `
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                    <path d="M12 19V5m-7 7l7 7 7-7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            `}
+                        </div>
+                        <div class="transaction-details">
+                            <div class="transaction-description">${this.escapeHtml(this.getCategoryName(catId))}</div>
+                        </div>
+                        <div class="transaction-amount">
+                            ${catData.type === 'income' ? '+' : '-'}${this.formatCurrency(catData.amount)}
+                        </div>
                     </div>
+                `).join('');
+
+                return `
+                    <div class="history-card" style="cursor: default; padding-bottom: var(--spacing-sm);">
+                        <div class="history-card-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--bg-tertiary); padding-bottom: var(--spacing-sm); margin-bottom: var(--spacing-xs);">
+                            <span style="font-weight: bold;">${monthNames[group.dateObj.getMonth()]} ${group.dateObj.getFullYear()}</span>
+                            <span style="font-weight: bold; color: ${group.total >= 0 ? 'var(--income-color)' : 'var(--expense-color)'}">${group.total >= 0 ? '+' : ''}${this.formatCurrency(group.total)}</span>
+                        </div>
+                        ${catHtml}
+                    </div>
+                `;
+            }).join('');
+            
+        } else {
+            // Standard List View
+            container.innerHTML = filtered.map(transaction => `
+                <div class="transaction-item ${transaction.type}">
+                    <div class="transaction-icon">
+                        ${transaction.type === 'income' ? `
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                <path d="M12 5v14m7-7l-7-7-7 7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        ` : `
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                <path d="M12 19V5m-7 7l7 7 7-7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        `}
+                    </div>
+                    <div class="transaction-details">
+                        <div class="transaction-description">${this.escapeHtml(transaction.description)}</div>
+                        <div class="transaction-meta">
+                            <span>${this.formatDate(transaction.date)}</span>
+                            <span>•</span>
+                            <span class="transaction-category-tag">${this.escapeHtml(this.getCategoryName(transaction.category))}</span>
+                            <span>•</span>
+                            <span>${transaction.paymentMethod === 'cash' ? 'Nakit' : 'Banka'}</span>
+                        </div>
+                    </div>
+                    <div class="transaction-amount">
+                        ${transaction.type === 'income' ? '+' : '-'}${this.formatCurrency(transaction.amount)}
+                    </div>
+                    <button class="transaction-delete" onclick="app.deleteTransaction('${transaction.id}')" aria-label="Sil">
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M6 6l8 8m0-8l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                        </svg>
+                    </button>
                 </div>
-                <div class="transaction-amount">
-                    ${transaction.type === 'income' ? '+' : '-'}${this.formatCurrency(transaction.amount)}
-                </div>
-                <button class="transaction-delete" onclick="app.deleteTransaction('${transaction.id}')" aria-label="Sil">
-                    <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
-                        <path d="M6 6l8 8m0-8l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                    </svg>
-                </button>
-            </div>
-        `).join('');
+            `).join('');
+        }
     }
 
     renderInstallments() {

@@ -351,7 +351,7 @@
                         </div>
                     </div>
 
-                    <div class="filter-section" style="display: flex; gap: var(--spacing-sm);">
+                    <div class="filter-section" style="display: flex; gap: var(--spacing-sm); flex-wrap: wrap;">
                         <select id="filterType" class="filter-select">
                             <option value="all">Tümü (Gelir & Gider)</option>
                             <option value="income">Sadece Gelirler</option>
@@ -360,6 +360,10 @@
                         <select id="filterCategory" class="filter-select">
                             <option value="all">Tüm Kategoriler</option>
                         </select>
+                        <div class="view-toggle" style="display: flex; background: var(--bg-tertiary); padding: 4px; border-radius: var(--radius-sm); margin-left: auto;">
+                            <button class="toggle-btn active" data-view="list" style="padding: 4px 12px; border-radius: var(--radius-xs); border: none; background: transparent; color: var(--text-secondary); cursor: pointer; font-size: 0.85rem; font-weight: 500;">Liste</button>
+                            <button class="toggle-btn" data-view="summary" style="padding: 4px 12px; border-radius: var(--radius-xs); border: none; background: transparent; color: var(--text-secondary); cursor: pointer; font-size: 0.85rem; font-weight: 500;">Aylık Özet</button>
+                        </div>
                     </div>
 
                     <div class="transactions-list" id="transactionsList">

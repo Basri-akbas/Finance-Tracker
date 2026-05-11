@@ -421,6 +421,12 @@ body {
     border-color: var(--accent-primary-solid);
 }
 
+.toggle-btn.active {
+    background: var(--bg-primary) !important;
+    color: var(--text-primary) !important;
+    box-shadow: var(--shadow-sm);
+}
+
 /* Transactions & Installments List */
 .transactions-list,
 .installments-list {
