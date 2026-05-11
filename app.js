@@ -1169,10 +1169,51 @@ class FinanceTracker {
 
     // Installment Logic
     async checkInstallments() {
-        // Taksitler artık otomatik olarak işlem oluşturmuyor
-        // Sadece manuel takip için kullanılıyor
-        // Ana bakiyeyi etkilememesi için bu fonksiyon devre dışı bırakıldı
-        return;
+        const today = new Date();
+        const currentYear = today.getFullYear();
+        const currentMonth = today.getMonth();
+        const currentDay = today.getDate();
+
+        let hasChanges = false;
+
+        for (const installment of this.installments) {
+            const startDate = new Date(installment.startDate);
+            const startYear = startDate.getFullYear();
+            const startMonth = startDate.getMonth();
+            const startDay = startDate.getDate();
+
+            let monthsPassed = (currentYear - startYear) * 12 + (currentMonth - startMonth);
+            
+            // Eğer o ayın taksit günü henüz gelmediyse, bir eksik say
+            if (currentDay < startDay) {
+                monthsPassed--;
+            }
+
+            // Negatif olamaz (gelecek tarihli taksitler için)
+            if (monthsPassed < 0) monthsPassed = 0;
+
+            // Maksimum taksit sayısını geçemez
+            if (monthsPassed > installment.installmentCount) {
+                monthsPassed = installment.installmentCount;
+            }
+
+            if (installment.paidCount !== monthsPassed) {
+                try {
+                    await updateDoc(this.getInstallmentDoc(installment.id), {
+                        paidCount: monthsPassed
+                    });
+                    installment.paidCount = monthsPassed;
+                    hasChanges = true;
+                } catch (error) {
+                    console.error("Error updating installment paid count:", error);
+                }
+            }
+        }
+
+        if (hasChanges) {
+            this.updateSummary();
+            this.renderInstallments();
+        }
     }
 
 
@@ -1882,15 +1923,8 @@ class FinanceTracker {
                         </div>
                     </div>
                     <div class="installment-amount">
-                        ${this.formatCurrency(remainingAmount)}
+                        Kalan: ${this.formatCurrency(remainingAmount)}
                     </div>
-                    ${remaining > 0 ? `
-                        <button class="btn-icon" onclick="app.payInstallment('${installment.id}')" aria-label="Taksit Öde" title="Taksit Öde">
-                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor">
-                                <path d="M5 10l3 3 7-7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                            </svg>
-                        </button>
-                    ` : ''}
                     <button class="installment-delete" onclick="app.deleteInstallment('${installment.id}')" aria-label="Sil">
                         <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
                             <path d="M6 6l8 8m0-8l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
