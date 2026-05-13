@@ -833,6 +833,24 @@ form {
         white-space: nowrap;
         flex-shrink: 0;
     }
+
+    .modal {
+        padding: var(--spacing-sm);
+        align-items: flex-start; /* Move to top on mobile so keyboard doesn't hide form */
+    }
+
+    .modal-content {
+        max-height: 95vh; /* Allow more height on mobile */
+        margin-top: var(--spacing-sm);
+    }
+
+    form {
+        padding: var(--spacing-md); /* Reduce form padding on mobile */
+    }
+
+    .form-group {
+        margin-bottom: var(--spacing-md);
+    }
 }
 
 /* Scrollbar */
