@@ -63,6 +63,8 @@ class FinanceTracker {
         this.currentLandingTransactionType = 'income';
         this.currentPaymentMethod = 'cash';
         this.currentLandingPaymentMethod = 'cash';
+        this.currentLandingTransferDirection = 'cash_to_bank';
+        this.currentTransferDirection = 'cash_to_bank';
         this.transactionViewMode = 'list';
 
         this.user = null;
@@ -406,6 +408,17 @@ class FinanceTracker {
             });
         });
 
+        // Landing Form Transfer Direction Selector
+        document.querySelectorAll('.landing-direction-selector .payment-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const directionBtn = e.target.closest('.payment-btn');
+                this.currentLandingTransferDirection = directionBtn.dataset.direction;
+                document.querySelectorAll('.landing-direction-selector .payment-btn').forEach(b => {
+                    b.classList.toggle('active', b === directionBtn);
+                });
+            });
+        });
+
         // Theme toggle
         document.getElementById('themeToggle').addEventListener('click', () => this.toggleTheme());
 
@@ -452,8 +465,19 @@ class FinanceTracker {
         });
 
         // Payment Method Selector
-        document.querySelectorAll('.payment-btn').forEach(btn => {
+        document.querySelectorAll('.modal-payment-selector .payment-btn').forEach(btn => {
             btn.addEventListener('click', (e) => this.selectPaymentMethod(e.target.closest('.payment-btn')));
+        });
+
+        // Modal Transfer Direction Selector
+        document.querySelectorAll('.modal-direction-selector .payment-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const directionBtn = e.target.closest('.payment-btn');
+                this.currentTransferDirection = directionBtn.dataset.direction;
+                document.querySelectorAll('.modal-direction-selector .payment-btn').forEach(b => {
+                    b.classList.toggle('active', b === directionBtn);
+                });
+            });
         });
 
         // Installment Modal
@@ -594,13 +618,28 @@ class FinanceTracker {
 
         const incomeCategories = document.getElementById('landingIncomeCategories');
         const expenseCategories = document.getElementById('landingExpenseCategories');
+        const categoryGroup = document.getElementById('landingCategoryGroup');
+        const paymentMethodGroup = document.getElementById('landingPaymentMethodGroup');
+        const directionGroup = document.getElementById('landingTransferDirectionGroup');
 
-        if (type === 'income') {
-            incomeCategories.style.display = '';
-            expenseCategories.style.display = 'none';
+        if (type === 'transfer') {
+            if (categoryGroup) categoryGroup.style.display = 'none';
+            if (paymentMethodGroup) paymentMethodGroup.style.display = 'none';
+            if (directionGroup) directionGroup.style.display = '';
+            document.getElementById('landingTransactionCategory').removeAttribute('required');
         } else {
-            incomeCategories.style.display = 'none';
-            expenseCategories.style.display = '';
+            if (categoryGroup) categoryGroup.style.display = '';
+            if (paymentMethodGroup) paymentMethodGroup.style.display = '';
+            if (directionGroup) directionGroup.style.display = 'none';
+            document.getElementById('landingTransactionCategory').setAttribute('required', 'required');
+
+            if (type === 'income') {
+                if (incomeCategories) incomeCategories.style.display = '';
+                if (expenseCategories) expenseCategories.style.display = 'none';
+            } else {
+                if (incomeCategories) incomeCategories.style.display = 'none';
+                if (expenseCategories) expenseCategories.style.display = '';
+            }
         }
         document.getElementById('landingTransactionCategory').value = "";
     }
@@ -627,27 +666,27 @@ class FinanceTracker {
             const date = document.getElementById('landingTransactionDate').value;
             const category = document.getElementById('landingTransactionCategory').value;
 
-            console.log("Data:", {
-                description,
-                amountVal,
-                date,
-                category,
-                type: this.currentLandingTransactionType
-            });
+            if (!description || !amountVal || !date) {
+                alert("Lütfen tüm zorunlu alanları doldurun.");
+                submitBtn.disabled = false;
+                return;
+            }
 
-            if (!description || !amountVal || !date || !category) {
-                alert("Lütfen tüm alanları doldurun.");
+            if (this.currentLandingTransactionType !== 'transfer' && !category) {
+                alert("Lütfen bir kategori seçin.");
                 submitBtn.disabled = false;
                 return;
             }
 
             const transactionData = {
+                id: Date.now().toString(),
                 type: this.currentLandingTransactionType,
-                paymentMethod: this.currentLandingPaymentMethod,
-                description: description,
                 amount: parseFloat(amountVal),
-                date: date,
-                category: category,
+                description,
+                category: this.currentLandingTransactionType === 'transfer' ? 'transfer' : category,
+                date,
+                paymentMethod: this.currentLandingTransactionType === 'transfer' ? 'transfer' : this.currentLandingPaymentMethod,
+                transferDirection: this.currentLandingTransactionType === 'transfer' ? this.currentLandingTransferDirection : null,
                 createdAt: new Date().toISOString()
             };
 
@@ -905,6 +944,9 @@ class FinanceTracker {
 
             this.currentTransactionType = transaction.type;
             this.currentPaymentMethod = transaction.paymentMethod || 'cash';
+            if (transaction.type === 'transfer') {
+                this.currentTransferDirection = transaction.transferDirection || 'cash_to_bank';
+            }
 
             this.selectTransactionType(document.querySelector(`.type-btn[data-type="${transaction.type}"]`));
             this.selectPaymentMethod(document.querySelector(`.payment-btn[data-payment="${this.currentPaymentMethod}"]`));
@@ -941,17 +983,32 @@ class FinanceTracker {
 
         const incomeCategories = document.getElementById('incomeCategories');
         const expenseCategories = document.getElementById('expenseCategories');
+        const categoryGroup = document.getElementById('modalCategoryGroup');
+        const paymentMethodGroup = document.getElementById('modalPaymentMethodGroup');
+        const directionGroup = document.getElementById('modalTransferDirectionGroup');
 
-        if (type === 'income') {
-            if (incomeCategories) incomeCategories.style.display = '';
-            if (expenseCategories) expenseCategories.style.display = 'none';
-            const firstOption = incomeCategories ? incomeCategories.querySelector('option') : null;
-            if (firstOption) document.getElementById('transactionCategory').value = firstOption.value;
+        if (type === 'transfer') {
+            if (categoryGroup) categoryGroup.style.display = 'none';
+            if (paymentMethodGroup) paymentMethodGroup.style.display = 'none';
+            if (directionGroup) directionGroup.style.display = '';
+            document.getElementById('transactionCategory').removeAttribute('required');
         } else {
-            if (incomeCategories) incomeCategories.style.display = 'none';
-            if (expenseCategories) expenseCategories.style.display = '';
-            const firstOption = expenseCategories ? expenseCategories.querySelector('option') : null;
-            if (firstOption) document.getElementById('transactionCategory').value = firstOption.value;
+            if (categoryGroup) categoryGroup.style.display = '';
+            if (paymentMethodGroup) paymentMethodGroup.style.display = '';
+            if (directionGroup) directionGroup.style.display = 'none';
+            document.getElementById('transactionCategory').setAttribute('required', 'required');
+
+            if (type === 'income') {
+                if (incomeCategories) incomeCategories.style.display = '';
+                if (expenseCategories) expenseCategories.style.display = 'none';
+                const firstOption = incomeCategories ? incomeCategories.querySelector('option') : null;
+                if (firstOption) document.getElementById('transactionCategory').value = firstOption.value;
+            } else {
+                if (incomeCategories) incomeCategories.style.display = 'none';
+                if (expenseCategories) expenseCategories.style.display = '';
+                const firstOption = expenseCategories ? expenseCategories.querySelector('option') : null;
+                if (firstOption) document.getElementById('transactionCategory').value = firstOption.value;
+            }
         }
     }
 
@@ -977,8 +1034,14 @@ class FinanceTracker {
             const date = document.getElementById('transactionDate').value;
             const category = document.getElementById('transactionCategory').value;
 
-            if (!description || !amountVal || !date || !category) {
-                alert("Lütfen tüm alanları doldurun.");
+            if (!description || !amountVal || !date) {
+                alert("Lütfen tüm zorunlu alanları doldurun.");
+                submitBtn.disabled = false;
+                return;
+            }
+
+            if (this.currentTransactionType !== 'transfer' && !category) {
+                alert("Lütfen bir kategori seçin.");
                 submitBtn.disabled = false;
                 return;
             }
@@ -993,12 +1056,14 @@ class FinanceTracker {
             }
 
             const transactionData = {
+                id: form.dataset.editId || Date.now().toString(),
                 type: this.currentTransactionType,
-                paymentMethod: this.currentPaymentMethod,
-                description: description,
                 amount: parseFloat(amountVal),
-                date: date,
-                category: category,
+                description,
+                category: this.currentTransactionType === 'transfer' ? 'transfer' : category,
+                date,
+                paymentMethod: this.currentTransactionType === 'transfer' ? 'transfer' : this.currentPaymentMethod,
+                transferDirection: this.currentTransactionType === 'transfer' ? this.currentTransferDirection : null,
                 createdAt: createdAt
             };
 
@@ -1372,7 +1437,16 @@ class FinanceTracker {
         let bankBalance = this.initialBalances.bank || 0;
 
         this.transactions.forEach(t => {
-            if (t.paymentMethod === 'cash') {
+            if (t.type === 'transfer') {
+                // Transfer: sadece bakiyeler arasında geçiş
+                if (t.transferDirection === 'cash_to_bank') {
+                    cashBalance -= t.amount;
+                    bankBalance += t.amount;
+                } else if (t.transferDirection === 'bank_to_cash') {
+                    bankBalance -= t.amount;
+                    cashBalance += t.amount;
+                }
+            } else if (t.paymentMethod === 'cash') {
                 if (t.type === 'income') cashBalance += t.amount;
                 else cashBalance -= t.amount;
             } else {
@@ -1840,31 +1914,39 @@ class FinanceTracker {
             
         } else {
             // Standard List View
-            container.innerHTML = filtered.map(transaction => `
-                <div class="transaction-item ${transaction.type}">
-                    <div class="transaction-icon">
-                        ${transaction.type === 'income' ? `
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                                <path d="M12 5v14m7-7l-7-7-7 7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                            </svg>
-                        ` : `
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                                <path d="M12 19V5m-7 7l7 7 7-7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                            </svg>
-                        `}
+            container.innerHTML = filtered.map(transaction => {
+                const isTransfer = transaction.type === 'transfer';
+                const directionLabel = transaction.transferDirection === 'cash_to_bank' ? 'Nakit → Banka' : 'Banka → Nakit';
+                const paymentLabel = isTransfer ? directionLabel : (transaction.paymentMethod === 'cash' ? 'Nakit' : 'Banka');
+                const categoryLabel = isTransfer ? 'Transfer' : this.escapeHtml(this.getCategoryName(transaction.category));
+
+                const iconSvg = isTransfer
+                    ? `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`
+                    : transaction.type === 'income'
+                        ? `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 5v14m7-7l-7-7-7 7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`
+                        : `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 19V5m-7 7l7 7 7-7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+
+                const amountHtml = isTransfer
+                    ? `<span style="color: var(--accent-primary-solid); font-weight: 600">⇄ ${this.formatCurrency(transaction.amount)}</span>`
+                    : `${transaction.type === 'income' ? '+' : '-'}${this.formatCurrency(transaction.amount)}`;
+
+                return `
+                <div class="transaction-item ${isTransfer ? 'transfer' : transaction.type}">
+                    <div class="transaction-icon" ${isTransfer ? 'style="background: rgba(99,102,241,0.15); color: var(--accent-primary-solid);"' : ''}>
+                        ${iconSvg}
                     </div>
                     <div class="transaction-details">
                         <div class="transaction-description">${this.escapeHtml(transaction.description)}</div>
                         <div class="transaction-meta">
                             <span>${this.formatDate(transaction.date)}</span>
                             <span>•</span>
-                            <span class="transaction-category-tag">${this.escapeHtml(this.getCategoryName(transaction.category))}</span>
+                            <span class="transaction-category-tag">${categoryLabel}</span>
                             <span>•</span>
-                            <span>${transaction.paymentMethod === 'cash' ? 'Nakit' : 'Banka'}</span>
+                            <span>${paymentLabel}</span>
                         </div>
                     </div>
-                    <div class="transaction-amount">
-                        ${transaction.type === 'income' ? '+' : '-'}${this.formatCurrency(transaction.amount)}
+                    <div class="transaction-amount" ${isTransfer ? 'style="color: var(--accent-primary-solid);"' : ''}>
+                        ${amountHtml}
                     </div>
                     <button class="transaction-delete" onclick="app.deleteTransaction('${transaction.id}')" aria-label="Sil">
                         <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
@@ -1872,7 +1954,8 @@ class FinanceTracker {
                         </svg>
                     </button>
                 </div>
-            `).join('');
+            `;
+            }).join('');
         }
     }
 

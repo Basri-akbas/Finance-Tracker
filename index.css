@@ -684,9 +684,12 @@ form {
 }
 
 .type-selector {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
+    display: flex;
     gap: var(--spacing-sm);
+}
+
+.type-btn, .payment-btn {
+    flex: 1;
 }
 
 .type-btn {

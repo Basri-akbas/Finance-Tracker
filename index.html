@@ -89,10 +89,16 @@
                             </svg>
                             Gider
                         </button>
+                        <button type="button" class="type-btn" data-type="transfer">
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor">
+                                <path d="M4 8h12M4 8l4-4m-4 4l4 4m8 4H4m12 0l-4-4m4 4l-4 4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                            </svg>
+                            Transfer
+                        </button>
                     </div>
                 </div>
 
-                <div class="form-group">
+                <div class="form-group" id="landingPaymentMethodGroup">
                     <label>Ödeme Yöntemi</label>
                     <div class="type-selector landing-payment-selector">
                         <button type="button" class="payment-btn active" data-payment="cash">
@@ -109,6 +115,14 @@
                             </svg>
                             Banka
                         </button>
+                    </div>
+                </div>
+
+                <div class="form-group" id="landingTransferDirectionGroup" style="display: none;">
+                    <label>Transfer Yönü</label>
+                    <div class="type-selector landing-direction-selector">
+                        <button type="button" class="payment-btn active" data-direction="cash_to_bank">Nakit → Banka</button>
+                        <button type="button" class="payment-btn" data-direction="bank_to_cash">Banka → Nakit</button>
                     </div>
                 </div>
 
@@ -129,7 +143,7 @@
                     </div>
                 </div>
 
-                <div class="form-group">
+                <div class="form-group" id="landingCategoryGroup">
                     <label for="landingTransactionCategory">Kategori</label>
                     <select id="landingTransactionCategory" required>
                         <option value="">Seçiniz</option>
@@ -353,9 +367,10 @@
 
                     <div class="filter-section" style="display: flex; gap: var(--spacing-sm); flex-wrap: wrap; align-items: center;">
                         <select id="filterType" class="filter-select" style="flex: 1; min-width: 140px;">
-                            <option value="all">Tümü (Gelir & Gider)</option>
+                            <option value="all">Tümü (Gelir & Gider & Transfer)</option>
                             <option value="income">Sadece Gelirler</option>
                             <option value="expense">Sadece Giderler</option>
+                            <option value="transfer">Sadece Transferler</option>
                         </select>
                         <select id="filterCategory" class="filter-select" style="flex: 1; min-width: 140px;">
                             <option value="all">Tüm Kategoriler</option>
@@ -498,12 +513,18 @@
                             </svg>
                             Gider
                         </button>
+                        <button type="button" class="type-btn" data-type="transfer">
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor">
+                                <path d="M4 8h12M4 8l4-4m-4 4l4 4m8 4H4m12 0l-4-4m4 4l-4 4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                            </svg>
+                            Transfer
+                        </button>
                     </div>
                 </div>
 
-                <div class="form-group">
+                <div class="form-group" id="modalPaymentMethodGroup">
                     <label>Ödeme Yöntemi</label>
-                    <div class="type-selector">
+                    <div class="type-selector modal-payment-selector">
                         <button type="button" class="payment-btn active" data-payment="cash">
                             <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor">
                                 <path d="M10 2v16M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" stroke-width="2"
@@ -518,6 +539,14 @@
                             </svg>
                             Banka
                         </button>
+                    </div>
+                </div>
+
+                <div class="form-group" id="modalTransferDirectionGroup" style="display: none;">
+                    <label>Transfer Yönü</label>
+                    <div class="type-selector modal-direction-selector">
+                        <button type="button" class="payment-btn active" data-direction="cash_to_bank">Nakit → Banka</button>
+                        <button type="button" class="payment-btn" data-direction="bank_to_cash">Banka → Nakit</button>
                     </div>
                 </div>
 
@@ -536,7 +565,7 @@
                     <input type="date" id="transactionDate" required>
                 </div>
 
-                <div class="form-group">
+                <div class="form-group" id="modalCategoryGroup">
                     <label for="transactionCategory">Kategori</label>
                     <select id="transactionCategory" required>
                         <option value="">Seçiniz</option>
