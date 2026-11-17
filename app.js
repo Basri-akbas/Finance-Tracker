@@ -25,7 +25,11 @@ function logAppError(msg, err) {
     console.error(msg, err);
     const logEl = document.getElementById('app-debug-log');
     if (logEl) {
-        logEl.innerHTML += `<div>${new Date().toLocaleTimeString()}: ${msg} ${err ? (err.message || err) : ''}</div>`;
+        // [C-3 FIX] textContent yerine innerHTML+= kullanmak XSS'e yol açabilir.
+        // Hata mesajları sanitize edilmeden DOM'a eklenmemelidir.
+        const div = document.createElement('div');
+        div.textContent = `${new Date().toLocaleTimeString()}: ${msg} ${err ? (err.message || err) : ''}`;
+        logEl.appendChild(div);
         logEl.style.display = 'block';
     }
 }
@@ -616,8 +620,8 @@ class FinanceTracker {
             b.classList.toggle('active', b === btn);
         });
 
-        const incomeCategories = document.getElementById('landingIncomeCategories');
-        const expenseCategories = document.getElementById('landingExpenseCategories');
+        const incomeSelect = document.getElementById('landingIncomeCategories');
+        const expenseSelect = document.getElementById('landingExpenseCategories');
         const categoryGroup = document.getElementById('landingCategoryGroup');
         const paymentMethodGroup = document.getElementById('landingPaymentMethodGroup');
         const directionGroup = document.getElementById('landingTransferDirectionGroup');
@@ -626,22 +630,39 @@ class FinanceTracker {
             if (categoryGroup) categoryGroup.style.display = 'none';
             if (paymentMethodGroup) paymentMethodGroup.style.display = 'none';
             if (directionGroup) directionGroup.style.display = '';
-            document.getElementById('landingTransactionCategory').removeAttribute('required');
+            if (incomeSelect) { incomeSelect.required = false; incomeSelect.disabled = true; }
+            if (expenseSelect) { expenseSelect.required = false; expenseSelect.disabled = true; }
         } else {
             if (categoryGroup) categoryGroup.style.display = '';
             if (paymentMethodGroup) paymentMethodGroup.style.display = '';
             if (directionGroup) directionGroup.style.display = 'none';
-            document.getElementById('landingTransactionCategory').setAttribute('required', 'required');
 
             if (type === 'income') {
-                if (incomeCategories) incomeCategories.style.display = '';
-                if (expenseCategories) expenseCategories.style.display = 'none';
+                if (incomeSelect) {
+                    incomeSelect.style.display = '';
+                    incomeSelect.required = true;
+                    incomeSelect.disabled = false;
+                    incomeSelect.value = '';
+                }
+                if (expenseSelect) {
+                    expenseSelect.style.display = 'none';
+                    expenseSelect.required = false;
+                    expenseSelect.disabled = true;
+                }
             } else {
-                if (incomeCategories) incomeCategories.style.display = 'none';
-                if (expenseCategories) expenseCategories.style.display = '';
+                if (expenseSelect) {
+                    expenseSelect.style.display = '';
+                    expenseSelect.required = true;
+                    expenseSelect.disabled = false;
+                    expenseSelect.value = '';
+                }
+                if (incomeSelect) {
+                    incomeSelect.style.display = 'none';
+                    incomeSelect.required = false;
+                    incomeSelect.disabled = true;
+                }
             }
         }
-        document.getElementById('landingTransactionCategory').value = "";
     }
 
     selectLandingPaymentMethod(btn) {
@@ -664,7 +685,14 @@ class FinanceTracker {
             const description = document.getElementById('landingTransactionDescription').value;
             const amountVal = document.getElementById('landingTransactionAmount').value;
             const date = document.getElementById('landingTransactionDate').value;
-            const category = document.getElementById('landingTransactionCategory').value;
+            // Aktif olan select'ten kategori oku
+            const landingIsIncome = this.currentLandingTransactionType === 'income';
+            const activeLandingSelect = landingIsIncome
+                ? document.getElementById('landingIncomeCategories')
+                : document.getElementById('landingExpenseCategories');
+            const category = (this.currentLandingTransactionType !== 'transfer' && activeLandingSelect)
+                ? activeLandingSelect.value
+                : '';
 
             if (!description || !amountVal || !date) {
                 alert("Lütfen tüm zorunlu alanları doldurun.");
@@ -806,60 +834,59 @@ class FinanceTracker {
     updateCategoryDropdowns() {
         if (!this.customCategories.income) return;
 
-        const incomeGroup = document.getElementById('incomeCategories');
-        const expenseGroup = document.getElementById('expenseCategories');
+        // --- Modal: incomeCategories ve expenseCategories ayrı select'ler ---
+        const modalIncomeSelect = document.getElementById('incomeCategories');
+        const modalExpenseSelect = document.getElementById('expenseCategories');
 
-        // Add custom income categories
-        const existingIncomeCustom = incomeGroup.querySelectorAll('[data-custom]');
-        existingIncomeCustom.forEach(el => el.remove());
+        if (modalIncomeSelect) {
+            // Önce önceki custom seçenekleri temizle
+            modalIncomeSelect.querySelectorAll('[data-custom]').forEach(el => el.remove());
+            this.customCategories.income.forEach(cat => {
+                const option = document.createElement('option');
+                option.value = cat.id;
+                option.textContent = cat.name;
+                option.setAttribute('data-custom', 'true');
+                modalIncomeSelect.appendChild(option);
+            });
+        }
 
-        this.customCategories.income.forEach(cat => {
-            const option = document.createElement('option');
-            option.value = cat.id;
-            option.textContent = cat.name;
-            option.setAttribute('data-custom', 'true');
-            incomeGroup.appendChild(option);
-        });
-
-        // Add custom expense categories
-        const existingExpenseCustom = expenseGroup.querySelectorAll('[data-custom]');
-        existingExpenseCustom.forEach(el => el.remove());
-
-        this.customCategories.expense.forEach(cat => {
-            const option = document.createElement('option');
-            option.value = cat.id;
-            option.textContent = cat.name;
-            option.setAttribute('data-custom', 'true');
-            expenseGroup.appendChild(option);
-        });
+        if (modalExpenseSelect) {
+            modalExpenseSelect.querySelectorAll('[data-custom]').forEach(el => el.remove());
+            this.customCategories.expense.forEach(cat => {
+                const option = document.createElement('option');
+                option.value = cat.id;
+                option.textContent = cat.name;
+                option.setAttribute('data-custom', 'true');
+                modalExpenseSelect.appendChild(option);
+            });
+        }
 
         this.updateFilterCategoryDropdown();
 
-        // For Landing Page
+        // --- Landing: landingIncomeCategories ve landingExpenseCategories ayrı select'ler ---
         const landingIncomeSelect = document.getElementById('landingIncomeCategories');
         const landingExpenseSelect = document.getElementById('landingExpenseCategories');
 
         if (landingIncomeSelect) {
-            landingIncomeSelect.innerHTML = `
-                <option value="salary">Maaş</option>
-                <option value="freelance">Serbest Çalışma</option>
-                <option value="investment">Yatırım</option>
-                <option value="other-income">Diğer</option>
-                ${this.customCategories.income.map(cat => `<option value="${this.escapeHtml(cat.id)}">${this.escapeHtml(cat.name)}</option>`).join('')}
-            `;
+            landingIncomeSelect.querySelectorAll('[data-custom]').forEach(el => el.remove());
+            this.customCategories.income.forEach(cat => {
+                const option = document.createElement('option');
+                option.value = cat.id;
+                option.textContent = cat.name;
+                option.setAttribute('data-custom', 'true');
+                landingIncomeSelect.appendChild(option);
+            });
         }
 
         if (landingExpenseSelect) {
-            landingExpenseSelect.innerHTML = `
-                <option value="food">Yiyecek & İçecek</option>
-                <option value="transport">Ulaşım</option>
-                <option value="bills">Faturalar</option>
-                <option value="shopping">Alışveriş</option>
-                <option value="health">Sağlık</option>
-                <option value="entertainment">Eğlence</option>
-                <option value="other-expense">Diğer</option>
-                ${this.customCategories.expense.map(cat => `<option value="${this.escapeHtml(cat.id)}">${this.escapeHtml(cat.name)}</option>`).join('')}
-            `;
+            landingExpenseSelect.querySelectorAll('[data-custom]').forEach(el => el.remove());
+            this.customCategories.expense.forEach(cat => {
+                const option = document.createElement('option');
+                option.value = cat.id;
+                option.textContent = cat.name;
+                option.setAttribute('data-custom', 'true');
+                landingExpenseSelect.appendChild(option);
+            });
         }
     }
 
@@ -935,12 +962,12 @@ class FinanceTracker {
         const form = document.getElementById('transactionForm');
 
         if (transaction) {
-            // Edit mode
-            document.getElementById('transactionModalTitle').textContent = 'İşlemi Düzenle';
+            // Edit mode: set the correct select value
             document.getElementById('transactionDescription').value = transaction.description;
             document.getElementById('transactionAmount').value = transaction.amount;
             document.getElementById('transactionDate').value = transaction.date;
-            document.getElementById('transactionCategory').value = transaction.category;
+            // Category is set after selectTransactionType so the right select is visible
+            this._pendingEditCategory = transaction.category;
 
             this.currentTransactionType = transaction.type;
             this.currentPaymentMethod = transaction.paymentMethod || 'cash';
@@ -948,8 +975,17 @@ class FinanceTracker {
                 this.currentTransferDirection = transaction.transferDirection || 'cash_to_bank';
             }
 
-            this.selectTransactionType(document.querySelector(`.type-btn[data-type="${transaction.type}"]`));
+            this.selectTransactionType(document.querySelector(`.modal .type-btn[data-type="${transaction.type}"]`));
             this.selectPaymentMethod(document.querySelector(`.payment-btn[data-payment="${this.currentPaymentMethod}"]`));
+
+            // Set category on the now-visible select
+            if (this._pendingEditCategory) {
+                const activeSelect = transaction.type === 'income'
+                    ? document.getElementById('incomeCategories')
+                    : document.getElementById('expenseCategories');
+                if (activeSelect) activeSelect.value = this._pendingEditCategory;
+                this._pendingEditCategory = null;
+            }
 
             form.dataset.editId = transaction.id;
         } else {
@@ -958,7 +994,7 @@ class FinanceTracker {
             form.reset();
             delete form.dataset.editId;
             this.setDefaultDate();
-            this.selectTransactionType(document.querySelector('.type-btn[data-type="income"]'));
+            this.selectTransactionType(document.querySelector('.modal .type-btn[data-type="income"]'));
             this.selectPaymentMethod(document.querySelector('.payment-btn[data-payment="cash"]'));
             const recurringCheckbox = document.getElementById('transactionRecurring');
             if (recurringCheckbox) recurringCheckbox.checked = false;
@@ -977,12 +1013,12 @@ class FinanceTracker {
         const type = btn.dataset.type;
         this.currentTransactionType = type;
 
-        document.querySelectorAll('.type-btn').forEach(b => {
+        document.querySelectorAll('.modal .type-btn').forEach(b => {
             b.classList.toggle('active', b === btn);
         });
 
-        const incomeCategories = document.getElementById('incomeCategories');
-        const expenseCategories = document.getElementById('expenseCategories');
+        const incomeSelect = document.getElementById('incomeCategories');
+        const expenseSelect = document.getElementById('expenseCategories');
         const categoryGroup = document.getElementById('modalCategoryGroup');
         const paymentMethodGroup = document.getElementById('modalPaymentMethodGroup');
         const directionGroup = document.getElementById('modalTransferDirectionGroup');
@@ -991,23 +1027,37 @@ class FinanceTracker {
             if (categoryGroup) categoryGroup.style.display = 'none';
             if (paymentMethodGroup) paymentMethodGroup.style.display = 'none';
             if (directionGroup) directionGroup.style.display = '';
-            document.getElementById('transactionCategory').removeAttribute('required');
+            if (incomeSelect) { incomeSelect.required = false; incomeSelect.disabled = true; }
+            if (expenseSelect) { expenseSelect.required = false; expenseSelect.disabled = true; }
         } else {
             if (categoryGroup) categoryGroup.style.display = '';
             if (paymentMethodGroup) paymentMethodGroup.style.display = '';
             if (directionGroup) directionGroup.style.display = 'none';
-            document.getElementById('transactionCategory').setAttribute('required', 'required');
 
             if (type === 'income') {
-                if (incomeCategories) incomeCategories.style.display = '';
-                if (expenseCategories) expenseCategories.style.display = 'none';
-                const firstOption = incomeCategories ? incomeCategories.querySelector('option') : null;
-                if (firstOption) document.getElementById('transactionCategory').value = firstOption.value;
+                if (incomeSelect) {
+                    incomeSelect.style.display = '';
+                    incomeSelect.required = true;
+                    incomeSelect.disabled = false;
+                    incomeSelect.value = '';
+                }
+                if (expenseSelect) {
+                    expenseSelect.style.display = 'none';
+                    expenseSelect.required = false;
+                    expenseSelect.disabled = true;
+                }
             } else {
-                if (incomeCategories) incomeCategories.style.display = 'none';
-                if (expenseCategories) expenseCategories.style.display = '';
-                const firstOption = expenseCategories ? expenseCategories.querySelector('option') : null;
-                if (firstOption) document.getElementById('transactionCategory').value = firstOption.value;
+                if (expenseSelect) {
+                    expenseSelect.style.display = '';
+                    expenseSelect.required = true;
+                    expenseSelect.disabled = false;
+                    expenseSelect.value = '';
+                }
+                if (incomeSelect) {
+                    incomeSelect.style.display = 'none';
+                    incomeSelect.required = false;
+                    incomeSelect.disabled = true;
+                }
             }
         }
     }
@@ -1032,7 +1082,14 @@ class FinanceTracker {
             const description = document.getElementById('transactionDescription').value;
             const amountVal = document.getElementById('transactionAmount').value;
             const date = document.getElementById('transactionDate').value;
-            const category = document.getElementById('transactionCategory').value;
+            // Aktif olan select'ten kategori oku
+            const isIncome = this.currentTransactionType === 'income';
+            const activeCatSelect = isIncome
+                ? document.getElementById('incomeCategories')
+                : document.getElementById('expenseCategories');
+            const category = (this.currentTransactionType !== 'transfer' && activeCatSelect)
+                ? activeCatSelect.value
+                : '';
 
             if (!description || !amountVal || !date) {
                 alert("Lütfen tüm zorunlu alanları doldurun.");
@@ -2132,8 +2189,18 @@ class FinanceTracker {
             pinScreen.style.display = 'flex';
 
             if (userDoc.exists() && userDoc.data().pin) {
-                // PIN exists, ask to enter
-                this.storedPin = userDoc.data().pin;
+                let storedPin = userDoc.data().pin;
+
+                // [C-1 MIGRATION] Eski cleartext PIN tespiti:
+                // SHA-256 hash 64 karakter hex iken eski format 4 rakamdan oluşur.
+                // Cleartext tespit edilirse hash'e dönüştürüp Firestore'u güncelle.
+                if (/^\d{4}$/.test(storedPin)) {
+                    console.info("Eski PIN formatı tespit edildi, SHA-256'ya dönüştürülüyor...");
+                    storedPin = await this.hashPin(storedPin);
+                    await setDoc(this.getUserDoc(), { pin: storedPin }, { merge: true });
+                }
+
+                this.storedPin = storedPin;
                 this.pinMode = 'verify';
                 pinTitle.textContent = "PIN Giriniz";
                 pinSubtitle.textContent = "Devam etmek için 4 haneli PIN girin";
@@ -2167,7 +2234,7 @@ class FinanceTracker {
     }
 
     handlePinAction() {
-        console.log("Checking PIN action. Input:", this.pinInput, "Length:", this.pinInput.length);
+        // [C-1 FIX] PIN değeri loglara yazılmıyor.
         if (this.pinInput.length !== 4) {
             alert("Lütfen 4 haneli PIN giriniz.");
             return;
@@ -2191,28 +2258,43 @@ class FinanceTracker {
         });
     }
 
+    // [C-1 FIX] PIN'i SHA-256 ile hash'ler. Web Crypto API, tüm modern
+    // tarayıcılarda yerleşik olarak desteklenir; harici kütüphane gerekmez.
+    async hashPin(pin) {
+        const msgBuffer = new TextEncoder().encode(pin);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
     async verifyPin() {
-        console.log("Verifying PIN. Input:", this.pinInput, "Stored:", this.storedPin);
-        // Force string comparison to avoid type issues
-        if (String(this.pinInput) === String(this.storedPin)) {
-            console.log("PIN Verified!");
-            this.isPinVerified = true;
-            document.getElementById('pinScreen').style.display = 'none';
-            this.init();
-            this.switchView('landing');
-        } else {
-            console.warn("PIN Mismatch");
-            alert("Hatalı PIN!");
-            this.pinInput = "";
-            this.updatePinDisplay();
+        // [C-1 FIX] PIN değeri loglara yazılmıyor; hash karşılaştırması yapılıyor.
+        try {
+            const inputHash = await this.hashPin(this.pinInput);
+            if (inputHash === this.storedPin) {
+                this.isPinVerified = true;
+                document.getElementById('pinScreen').style.display = 'none';
+                this.init();
+                this.switchView('landing');
+            } else {
+                alert("Hatalı PIN!");
+                this.pinInput = "";
+                this.updatePinDisplay();
+            }
+        } catch (error) {
+            console.error("PIN doğrulama hatası:", error);
+            alert("PIN doğrulanamadı.");
         }
     }
 
     async createPin() {
-        if (confirm(`PIN kodunuz ${this.pinInput} olarak ayarlanacak. Onaylıyor musunuz?`)) {
+        // [C-1 FIX] confirm() diyaloğunda PIN gösterilmiyor.
+        if (confirm("PIN kodunuz ayarlanacak. Onaylıyor musunuz?")) {
             try {
-                await setDoc(this.getUserDoc(), { pin: this.pinInput }, { merge: true });
-                this.storedPin = this.pinInput;
+                // [C-1 FIX] PIN cleartext değil, SHA-256 hash olarak Firestore'a kaydediliyor.
+                const pinHash = await this.hashPin(this.pinInput);
+                await setDoc(this.getUserDoc(), { pin: pinHash }, { merge: true });
+                this.storedPin = pinHash;
                 this.isPinVerified = true;
                 alert("PIN Başarıyla Oluşturuldu!");
                 document.getElementById('pinScreen').style.display = 'none';
